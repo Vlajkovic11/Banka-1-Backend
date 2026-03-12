@@ -19,6 +19,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,6 +67,7 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain authChain(HttpSecurity http,SecurityProperties props) throws Exception {
         http.securityMatcher(props.getPermitAll())
+                .cors(cors -> {})
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
 
@@ -75,8 +79,12 @@ public class SecurityConfig {
     public SecurityFilterChain apiChain(HttpSecurity http,
                                         JwtAuthenticationConverter converter) throws Exception {
 
-        http.csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+        http.cors(cors -> {})
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        .anyRequest().authenticated()
+                )
                 .oauth2ResourceServer(oauth ->
                         oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
                 );
@@ -97,13 +105,25 @@ public class SecurityConfig {
             List<String> permissions = jwt.getClaimAsStringList(props.getPermissionsClaim());
             if (permissions != null) {
                 permissions.forEach(p ->
-                    authorities.add(new SimpleGrantedAuthority(p))
+                        authorities.add(new SimpleGrantedAuthority(p))
                 );
             }
-                return authorities;
-            });
+            return authorities;
+        });
 
         return converter;
+    }
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:4200"));
+        config.setAllowedMethods(List.of("*"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
 }

@@ -124,7 +124,7 @@ public class Zaposlen extends BaseEntity {
     /**
      * Aktivacioni / reset token vezan za zaposlenog (opcioni).
      */
-    @OneToOne(mappedBy = "zaposlen")
+    @OneToOne(mappedBy = "zaposlen", cascade = CascadeType.ALL, orphanRemoval = true)
     private ConfirmationToken confirmationToken;
 
     /**

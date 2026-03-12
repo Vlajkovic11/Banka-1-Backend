@@ -5,6 +5,7 @@ import com.banka1.userService.dto.requests.EmployeeEditRequestDto;
 import com.banka1.userService.dto.requests.EmployeeUpdateRequestDto;
 import com.banka1.userService.dto.responses.EmployeeResponseDto;
 import com.banka1.userService.service.CrudService;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -109,6 +110,7 @@ public class CrudController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('AGENT')")
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public ResponseEntity<EmployeeResponseDto> updateEmployee(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id,
