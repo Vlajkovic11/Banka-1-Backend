@@ -70,9 +70,32 @@ public class Klijent extends BaseEntity {
     private String email;
 
     /**
-     * Broj telefona klijenta.
+     * Broj telefona klijenta, normalizovan u E.164 format pri postavljanju.
+     * Svi ulazni formati se svode na isti oblik kako bi pretraga bila konzistentna:
+     *   "+381641234567"   → "+381641234567"
+     *   "00381641234567"  → "+381641234567"
+     *   "381641234567"    → "+381641234567"
+     *   "0641234567"      → "+381641234567"  (lokalni srpski format, pozivni +381)
+     * Napomena: lokalni format pretpostavlja Srbiju (+381). Strani brojevi se unose sa + prefiksom.
      */
     private String brojTelefona;
+
+    public void setBrojTelefona(String brojTelefona) {
+        if (brojTelefona == null || brojTelefona.isBlank()) {
+            this.brojTelefona = brojTelefona;
+            return;
+        }
+        String t = brojTelefona.strip();
+        if (t.startsWith("+")) {
+            this.brojTelefona = t;
+        } else if (t.startsWith("00")) {
+            this.brojTelefona = "+" + t.substring(2);
+        } else if (t.startsWith("0")) {
+            this.brojTelefona = "+381" + t.substring(1);
+        } else {
+            this.brojTelefona = "+" + t;
+        }
+    }
 
     /**
      * Adresa stanovanja klijenta.

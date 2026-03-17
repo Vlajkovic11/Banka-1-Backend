@@ -4,69 +4,53 @@ import com.banka1.clientService.domain.Klijent;
 import com.banka1.clientService.dto.requests.ClientCreateRequestDto;
 import com.banka1.clientService.dto.requests.ClientUpdateRequestDto;
 import com.banka1.clientService.dto.responses.ClientResponseDto;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.mapstruct.ReportingPolicy;
 
 /**
- * Mapper koji konvertuje DTO objekte u JPA entitete i obrnuto za entitet {@link Klijent}.
+ * MapStruct mapper za konverziju izmedju DTO objekata i JPA entiteta {@link Klijent}.
+ * Implementacija se generiše u vreme kompajliranja — nemapovana ciljna polja uzrokuju gresku pri build-u.
+ * Normalizacija broja telefona je enkapsulirana u {@link Klijent#setBrojTelefona}.
  */
-@Component
-public class ClientMapper {
+@Mapper(componentModel = "spring", unmappedSourcePolicy = ReportingPolicy.IGNORE)
+public interface ClientMapper {
 
     /**
      * Mapira DTO za kreiranje klijenta u entitet.
-     * Password i salt se ne postavljaju ovde – kreira ih servis ili se postavljaju pri aktivaciji.
-     *
-     * @param dto ulazni podaci za kreiranje
-     * @return novi entitet klijenta
+     * BaseEntity polja (id, version, deleted, timestamps) i kredencijali se postavljaju zasebno.
      */
-    public Klijent toEntity(ClientCreateRequestDto dto) {
-        Klijent klijent = new Klijent();
-        klijent.setIme(dto.getIme());
-        klijent.setPrezime(dto.getPrezime());
-        klijent.setDatumRodjenja(dto.getDatumRodjenja());
-        klijent.setPol(dto.getPol());
-        klijent.setEmail(dto.getEmail());
-        klijent.setBrojTelefona(dto.getBrojTelefona());
-        klijent.setAdresa(dto.getAdresa());
-        klijent.setJmbg(dto.getJmbg());
-        return klijent;
-    }
+    @Mapping(target = "id",           ignore = true)
+    @Mapping(target = "version",      ignore = true)
+    @Mapping(target = "deleted",      ignore = true)
+    @Mapping(target = "createdAt",    ignore = true)
+    @Mapping(target = "updatedAt",    ignore = true)
+    @Mapping(target = "password",     ignore = true)
+    @Mapping(target = "saltPassword", ignore = true)
+    Klijent toEntity(ClientCreateRequestDto dto);
 
     /**
-     * Mapira entitet klijenta u izlazni DTO za API odgovor.
-     * Ne ukljucuje osetljive podatke poput lozinke, salta ili JMBG-a.
-     *
-     * @param klijent entitet klijenta
-     * @return DTO za API odgovor
+     * Mapira entitet klijenta u izlazni DTO.
+     * Osetljivi podaci (password, saltPassword, jmbg) nisu u {@link ClientResponseDto} — automatski se preskacu.
      */
-    public ClientResponseDto toDto(Klijent klijent) {
-        return new ClientResponseDto(
-                klijent.getId(),
-                klijent.getIme(),
-                klijent.getPrezime(),
-                klijent.getDatumRodjenja(),
-                klijent.getPol(),
-                klijent.getEmail(),
-                klijent.getBrojTelefona(),
-                klijent.getAdresa()
-        );
-    }
+    ClientResponseDto toDto(Klijent klijent);
 
     /**
-     * Azurira entitet klijenta podacima iz DTO-a.
-     * JMBG i password se ne mogu menjati ovom metodom.
-     * Null vrednosti u DTO-u znace da se to polje ne menja.
-     *
-     * @param klijent entitet koji se menja
-     * @param dto     DTO sa novim vrednostima
+     * Parcijalno azurira entitet klijenta podacima iz DTO-a.
+     * Null vrednosti u DTO-u se preskacu — polje ostaje nepromenjeno.
+     * JMBG i kredencijali su nepromenjivi i uvek se ignorisu.
      */
-    public void updateEntityFromDto(Klijent klijent, ClientUpdateRequestDto dto) {
-        if (dto.getIme() != null) klijent.setIme(dto.getIme());
-        if (dto.getPrezime() != null) klijent.setPrezime(dto.getPrezime());
-        if (dto.getDatumRodjenja() != null) klijent.setDatumRodjenja(dto.getDatumRodjenja());
-        if (dto.getPol() != null) klijent.setPol(dto.getPol());
-        if (dto.getEmail() != null) klijent.setEmail(dto.getEmail());
-        if (dto.getBrojTelefona() != null) klijent.setBrojTelefona(dto.getBrojTelefona());
-        if (dto.getAdresa() != null) klijent.setAdresa(dto.getAdresa());
-    }
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id",           ignore = true)
+    @Mapping(target = "version",      ignore = true)
+    @Mapping(target = "deleted",      ignore = true)
+    @Mapping(target = "createdAt",    ignore = true)
+    @Mapping(target = "updatedAt",    ignore = true)
+    @Mapping(target = "password",     ignore = true)
+    @Mapping(target = "saltPassword", ignore = true)
+    @Mapping(target = "jmbg",         ignore = true)
+    void updateEntityFromDto(@MappingTarget Klijent klijent, ClientUpdateRequestDto dto);
 }

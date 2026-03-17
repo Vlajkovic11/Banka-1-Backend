@@ -6,12 +6,13 @@ import com.banka1.clientService.dto.requests.ClientCreateRequestDto;
 import com.banka1.clientService.dto.requests.ClientUpdateRequestDto;
 import com.banka1.clientService.dto.responses.ClientResponseDto;
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ClientMapperTest {
 
-    private final ClientMapper mapper = new ClientMapper();
+    private final ClientMapper mapper = Mappers.getMapper(ClientMapper.class);
 
     @Test
     void toEntityMapsAllFieldsFromCreateDto() {
@@ -131,5 +132,66 @@ class ClientMapperTest {
         assertThat(klijent.getPol()).isEqualTo(Pol.M);
         assertThat(klijent.getBrojTelefona()).isEqualTo("+381641234567");
         assertThat(klijent.getAdresa()).isEqualTo("Njegoseva 25");
+    }
+
+    // --- toString ---
+
+    @Test
+    void klijentToStringContainsNameAndEmailButNotJmbg() {
+        Klijent k = new Klijent();
+        k.setIme("Marko");
+        k.setPrezime("Markovic");
+        k.setEmail("marko@banka.com");
+        k.setJmbg("1234567890123");
+
+        String s = k.toString();
+
+        assertThat(s).contains("Marko").contains("Markovic").contains("marko@banka.com");
+        assertThat(s).doesNotContain("1234567890123");
+        assertThat(s).contains("[PROTECTED]");
+    }
+
+    // --- Normalizacija broja telefona (testovi su u Klijent domenu, ali proveravamo end-to-end kroz mapper) ---
+
+    @Test
+    void phoneWithPlusPrefixIsStoredAsIs() {
+        Klijent k = new Klijent();
+        k.setBrojTelefona("+381641234567");
+        assertThat(k.getBrojTelefona()).isEqualTo("+381641234567");
+    }
+
+    @Test
+    void phoneWith00PrefixIsNormalizedToPlus() {
+        Klijent k = new Klijent();
+        k.setBrojTelefona("00381641234567");
+        assertThat(k.getBrojTelefona()).isEqualTo("+381641234567");
+    }
+
+    @Test
+    void internationalPhoneWithoutPlusIsNormalized() {
+        Klijent k = new Klijent();
+        k.setBrojTelefona("381641234567");
+        assertThat(k.getBrojTelefona()).isEqualTo("+381641234567");
+    }
+
+    @Test
+    void localSerbianPhoneIsNormalizedToE164() {
+        Klijent k = new Klijent();
+        k.setBrojTelefona("0641234567");
+        assertThat(k.getBrojTelefona()).isEqualTo("+381641234567");
+    }
+
+    @Test
+    void nullPhoneIsStoredAsNull() {
+        Klijent k = new Klijent();
+        k.setBrojTelefona(null);
+        assertThat(k.getBrojTelefona()).isNull();
+    }
+
+    @Test
+    void blankPhoneIsStoredAsBlank() {
+        Klijent k = new Klijent();
+        k.setBrojTelefona("   ");
+        assertThat(k.getBrojTelefona()).isEqualTo("   ");
     }
 }

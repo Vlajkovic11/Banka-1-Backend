@@ -35,6 +35,16 @@ public interface KlijentRepository extends JpaRepository<Klijent, Long> {
     Optional<Klijent> findByJmbg(String jmbg);
 
     /**
+     * Proverava da li postoji aktivan klijent sa zadatim emailom koji nije klijent sa datim ID-em.
+     * Koristi se pre azuriranja radi rane detekcije duplikata emaila.
+     *
+     * @param email email adresa koju treba proveriti
+     * @param id    ID klijenta koji se azurira (iskljucuje se iz provere)
+     * @return true ako postoji drugi klijent sa istim emailom
+     */
+    boolean existsByEmailAndIdNot(String email, Long id);
+
+    /**
      * Pretrazuje klijente po kombinaciji filtera sa paginacijom.
      * Svaki filter koristi case-insensitive LIKE pretragu; prazan string se ponasa kao wildcard.
      *

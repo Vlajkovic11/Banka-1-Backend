@@ -41,14 +41,22 @@ Kreirati `.env` fajl u `client-service/` folderu (primer u `.env.example`):
 
 | Varijabla | Opis | Primer |
 |---|---|---|
-| `SERVER_PORT` | Port na kome servis sluša | `8083` |
-| `DOCKER_PORT` | Eksterni Docker port | `8084` |
+| `CLIENT_SERVICE_PORT` | Port na kome servis sluša | `8083` |
+| `CLIENT_SERVICE_DOCKER_PORT` | Eksterni Docker port | `8084` |
+| `CLIENT_SERVICE_URL` | Javni URL servera (za OpenAPI dokumentaciju) | `http://localhost:8083` |
 | `JWT_SECRET` | HMAC-SHA256 secret (isti kao user-service) | `my_secret_key` |
-| `DB_HOST` | Hostname baze podataka | `localhost` |
-| `DB_PORT` | Port baze podataka | `5433` |
-| `DB_NAME` | Naziv baze podataka | `clientdb` |
-| `DB_USER` | Korisničko ime baze | `postgres` |
-| `DB_PASSWORD` | Lozinka baze | `postgres` |
+| `CLIENT_SERVICE_DB_HOST` | Hostname baze podataka | `localhost` |
+| `CLIENT_SERVICE_DB_PORT` | Port baze podataka | `5433` |
+| `CLIENT_SERVICE_DB_NAME` | Naziv baze podataka | `clientdb` |
+| `CLIENT_SERVICE_DB_USER` | Korisničko ime baze | `postgres` |
+| `CLIENT_SERVICE_DB_PASSWORD` | Lozinka baze | `postgres` |
+| `RABBITMQ_HOST` | Hostname RabbitMQ brokera | `localhost` |
+| `RABBITMQ_PORT` | Port RabbitMQ brokera | `5672` |
+| `RABBITMQ_USERNAME` | Korisničko ime RabbitMQ | `rabbit` |
+| `RABBITMQ_PASSWORD` | Lozinka RabbitMQ | `rabbit` |
+| `NOTIFICATION_QUEUE` | Naziv RabbitMQ queue-a za notifikacije | `notification-service-queue` |
+| `NOTIFICATION_EXCHANGE` | Naziv RabbitMQ exchange-a | `employee.events` |
+| `NOTIFICATION_ROUTING_KEY` | Routing key za email notifikacije | `employee.#` |
 
 ---
 

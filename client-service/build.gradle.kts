@@ -43,8 +43,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-amqp")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     compileOnly("org.projectlombok:lombok")
+    implementation("org.mapstruct:mapstruct:1.5.5.Final")
     runtimeOnly("org.postgresql:postgresql")
     annotationProcessor("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+    annotationProcessor("org.mapstruct:mapstruct-processor:1.5.5.Final")
     testImplementation("org.springframework.boot:spring-boot-starter-amqp-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-liquibase-test")
@@ -77,7 +80,7 @@ checkstyle {
 }
 
 tasks.withType<org.gradle.api.plugins.quality.Checkstyle>().configureEach {
-    ignoreFailures = true
+    ignoreFailures = false
 }
 
 openApi {

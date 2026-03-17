@@ -14,8 +14,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * HTTP filter koji primenjuje ogranicenje broja zahteva (rate limiting) po IP adresi.
- * Stiti osetljive endpoint-e od prekomjernog koriscenja dozvoljavajuci maksimalno
- * {@value MAX_REQUESTS} zahteva po IP adresi u vremenskom prozoru od jedne minute.
+ * Stiti osetljive endpoint-e od prekomjernog koriscenja.
+ * Parametri {@code maxRequests} i {@code windowMs} se injektuju iz konfiguracije
+ * kako bi se mogli menjati bez ponovnog build-a.
  * Filter se primenjuje samo na putanje definisane u {@link #RATE_LIMITED_PATHS}.
  */
 public class RateLimitFilter extends OncePerRequestFilter {
@@ -26,16 +27,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
     );
 
     /** Maksimalni broj zahteva po IP adresi unutar vremenskog prozora. */
-    private static final int MAX_REQUESTS = 10;
+    private final int maxRequests;
 
-    /** Trajanje vremenskog prozora u milisekundama (1 minuta). */
-    private static final long WINDOW_MS = 60_000L;
+    /** Trajanje vremenskog prozora u milisekundama. */
+    private final long windowMs;
 
     /**
      * Mapa koja cuva vremenske markice zahteva po IP adresi.
      * Kljuc je IP adresa, vrednost je deque vremenskih markica unutar tekuceg prozora.
      */
     private final ConcurrentHashMap<String, Deque<Long>> requestMap = new ConcurrentHashMap<>();
+
+    public RateLimitFilter(int maxRequests, long windowMs) {
+        this.maxRequests = maxRequests;
+        this.windowMs = windowMs;
+    }
 
     /**
      * Proverava rate limit za svaki dolazeci POST zahtev na zasticenim putanjama.
@@ -63,10 +69,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         Deque<Long> timestamps = requestMap.computeIfAbsent(ip, k -> new ArrayDeque<>());
         synchronized (timestamps) {
-            while (!timestamps.isEmpty() && now - timestamps.peekFirst() > WINDOW_MS) {
+            while (!timestamps.isEmpty() && now - timestamps.peekFirst() > windowMs) {
                 timestamps.pollFirst();
             }
-            if (timestamps.size() >= MAX_REQUESTS) {
+            if (timestamps.size() >= maxRequests) {
                 response.setStatus(429);
                 response.getWriter().write("Too many requests");
                 return;

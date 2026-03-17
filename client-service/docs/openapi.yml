@@ -29,11 +29,29 @@ paths:
         required: true
       responses:
         "200":
-          description: OK
+          description: Klijent uspesno azuriran
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ClientResponseDto"
+        "400":
+          description: Neispravni podaci u zahtevu
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Klijent nije pronadjen
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Email adresa je vec u upotrebi
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
     delete:
       tags:
       - client-controller
@@ -47,8 +65,14 @@ paths:
           type: integer
           format: int64
       responses:
-        "200":
-          description: OK
+        "204":
+          description: Klijent uspesno obrisan
+        "404":
+          description: Klijent nije pronadjen
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
   /customers:
     get:
       tags:
@@ -107,12 +131,24 @@ paths:
               $ref: "#/components/schemas/ClientCreateRequestDto"
         required: true
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Klijent uspesno kreiran
           content:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ClientResponseDto"
+        "400":
+          description: Neispravni podaci u zahtevu
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Email adresa ili JMBG su vec u upotrebi
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
   /customers/search:
     get:
       tags:
@@ -168,6 +204,12 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ClientIdResponseDto"
+        "404":
+          description: Klijent sa zadatim JMBG-om nije pronadjen
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
 components:
   schemas:
     ClientUpdateRequestDto:
@@ -260,6 +302,19 @@ components:
       - jmbg
       - pol
       - prezime
+    ErrorResponseDto:
+      type: object
+      properties:
+        errorCode:
+          type: string
+        errorTitle:
+          type: string
+        errorDesc:
+          type: string
+        validationErrors:
+          type: object
+          additionalProperties:
+            type: string
     PageClientResponseDto:
       type: object
       properties:

@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
@@ -278,6 +279,43 @@ class ClientServiceImplementationTest {
         ClientIdResponseDto result = clientService.getIdByJmbg("1234567890123");
 
         assertThat(result.getId()).isEqualTo(7L);
+    }
+
+    @Test
+    void updateClientThrowsEmailAlreadyExistsWhenEmailTaken() {
+        Klijent existing = klijent("marko@banka.com", "1234567890123");
+        existing.setId(1L);
+        ClientUpdateRequestDto dto = new ClientUpdateRequestDto();
+        dto.setEmail("taken@banka.com");
+
+        when(klijentRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(klijentRepository.existsByEmailAndIdNot("taken@banka.com", 1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> clientService.updateClient(1L, dto))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS);
+
+        verify(klijentRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void createClientAfterCompletionRollbackDoesNotSendEmail() {
+        ClientCreateRequestDto dto = createRequest();
+        Klijent entity = klijent("marko@banka.com", "1234567890123");
+        Klijent saved = klijent("marko@banka.com", "1234567890123");
+        saved.setId(1L);
+
+        when(clientMapper.toEntity(dto)).thenReturn(entity);
+        when(klijentRepository.save(entity)).thenReturn(saved);
+        when(clientMapper.toDto(saved)).thenReturn(responseDto(1L, "Marko", "Markovic", "marko@banka.com"));
+
+        clientService.createClient(dto);
+
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(sync -> sync.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+
+        verify(rabbitClient, never()).sendEmailNotification(any());
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

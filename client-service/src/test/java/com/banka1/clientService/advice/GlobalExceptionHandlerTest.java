@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.hibernate.exception.ConstraintViolationException;
+
+import java.sql.SQLException;
 import java.util.NoSuchElementException;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -109,6 +112,27 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test-access-denied")
         public void throwAccessDenied() {
             throw new AccessDeniedException("Zabranjen pristup");
+        }
+
+        @GetMapping("/test-constraint-email")
+        public void throwConstraintViolationEmail() {
+            ConstraintViolationException cve = new ConstraintViolationException(
+                    "duplicate key", new SQLException(), "clients_email_key");
+            throw new DataIntegrityViolationException("duplicate key", cve);
+        }
+
+        @GetMapping("/test-constraint-jmbg")
+        public void throwConstraintViolationJmbg() {
+            ConstraintViolationException cve = new ConstraintViolationException(
+                    "duplicate key", new SQLException(), "clients_jmbg_key");
+            throw new DataIntegrityViolationException("duplicate key", cve);
+        }
+
+        @GetMapping("/test-constraint-null-name")
+        public void throwConstraintViolationNullName() {
+            ConstraintViolationException cve = new ConstraintViolationException(
+                    "duplicate key", new SQLException(), null);
+            throw new DataIntegrityViolationException("duplicate key", cve);
         }
 
         @PostMapping("/test-validation")
@@ -223,6 +247,29 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/test-access-denied"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.errorCode").value("ERR_FORBIDDEN"));
+    }
+
+    @Test
+    void constraintViolationEmailCauseReturns409WithEmailErrorCode() throws Exception {
+        mockMvc.perform(get("/test-constraint-email"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ERR_CLIENT_002"))
+                .andExpect(jsonPath("$.errorTitle").value("Email adresa je već u upotrebi"));
+    }
+
+    @Test
+    void constraintViolationJmbgCauseReturns409WithJmbgErrorCode() throws Exception {
+        mockMvc.perform(get("/test-constraint-jmbg"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ERR_CLIENT_003"))
+                .andExpect(jsonPath("$.errorTitle").value("JMBG je već u upotrebi"));
+    }
+
+    @Test
+    void constraintViolationNullNameFallsBackToMessageParsing() throws Exception {
+        mockMvc.perform(get("/test-constraint-null-name"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("ERR_CONSTRAINT_VIOLATION"));
     }
 
     @Test

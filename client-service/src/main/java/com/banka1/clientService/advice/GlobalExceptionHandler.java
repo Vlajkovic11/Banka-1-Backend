@@ -3,6 +3,7 @@ package com.banka1.clientService.advice;
 import com.banka1.clientService.dto.responses.ErrorResponseDto;
 import com.banka1.clientService.exception.BusinessException;
 import com.banka1.clientService.exception.ErrorCode;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.amqp.AmqpException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -53,13 +54,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponseDto> handleDataIntegrity(DataIntegrityViolationException ex) {
-        String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
-        ErrorCode errorCode;
-        if (msg.contains("clients_email_key") || msg.contains("(email)")) {
-            errorCode = ErrorCode.EMAIL_ALREADY_EXISTS;
-        } else if (msg.contains("clients_jmbg_key") || msg.contains("(jmbg)")) {
-            errorCode = ErrorCode.JMBG_ALREADY_EXISTS;
-        } else {
+        ErrorCode errorCode = resolveConstraintErrorCode(ex);
+        if (errorCode == null) {
             ErrorResponseDto error = new ErrorResponseDto(
                     "ERR_CONSTRAINT_VIOLATION",
                     "Podatak već postoji",
@@ -73,6 +69,20 @@ public class GlobalExceptionHandler {
                 errorCode.name()
         );
         return new ResponseEntity<>(error, errorCode.getHttpStatus());
+    }
+
+    private ErrorCode resolveConstraintErrorCode(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof ConstraintViolationException cve) {
+            String name = cve.getConstraintName() != null ? cve.getConstraintName().toLowerCase() : "";
+            if (name.contains("email")) return ErrorCode.EMAIL_ALREADY_EXISTS;
+            if (name.contains("jmbg"))  return ErrorCode.JMBG_ALREADY_EXISTS;
+        }
+        // Fallback za slucaj da JDBC drajver ne wrappuje u ConstraintViolationException
+        String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+        if (msg.contains("clients_email_key") || msg.contains("(email)")) return ErrorCode.EMAIL_ALREADY_EXISTS;
+        if (msg.contains("clients_jmbg_key")  || msg.contains("(jmbg)"))  return ErrorCode.JMBG_ALREADY_EXISTS;
+        return null;
     }
 
     /**
