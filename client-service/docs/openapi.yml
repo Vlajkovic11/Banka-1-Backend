@@ -6,7 +6,7 @@ info:
 servers:
 - url: http://localhost:8083
 security:
-- Bearer Authentication: []
+- BearerAuthentication: []
 paths:
   /customers/{id}:
     put:
@@ -326,7 +326,7 @@ components:
           type: integer
           format: int64
   securitySchemes:
-    Bearer Authentication:
+    BearerAuthentication:
       type: http
       scheme: bearer
       bearerFormat: JWT

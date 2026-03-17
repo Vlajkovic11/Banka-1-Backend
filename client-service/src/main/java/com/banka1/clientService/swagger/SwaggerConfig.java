@@ -35,9 +35,9 @@ public class SwaggerConfig {
                         .title("Client Service API")
                         .description("Servis za upravljanje klijentima banke. Dostupan samo zaposlenima.")
                         .version("1.0.0"))
-                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
+                .addSecurityItem(new SecurityRequirement().addList("BearerAuthentication"))
                 .components(new Components()
-                        .addSecuritySchemes("Bearer Authentication",
+                        .addSecuritySchemes("BearerAuthentication",
                                 new SecurityScheme()
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
