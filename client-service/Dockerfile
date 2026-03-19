@@ -12,6 +12,8 @@ RUN gradle build --no-daemon -x test -x checkstyleMain -x checkstyleTest
 
 FROM eclipse-temurin:21-jre-alpine
 
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 COPY --from=builder /app/client-service/build/libs/*.jar app.jar

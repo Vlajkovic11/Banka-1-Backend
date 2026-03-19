@@ -17,6 +17,8 @@ RUN gradle build --no-daemon -x test -x checkstyleMain -x checkstyleTest
 # ===== Runtime Stage =====
 FROM eclipse-temurin:21-jre-alpine
 
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy the built JAR from the builder stage

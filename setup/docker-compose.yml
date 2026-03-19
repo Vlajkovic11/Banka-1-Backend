@@ -164,6 +164,11 @@ services:
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_SERVICE_NAME: notification-service
     depends_on:
       postgres_notification:
         condition: service_healthy
@@ -202,6 +207,11 @@ services:
       SERVER_PORT: ${SERVER_PORT:-8081}
       MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_SERVICE_NAME: userService
     depends_on:
       postgres_user:
         condition: service_healthy
@@ -235,6 +245,11 @@ services:
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
       MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://otel-collector:4318/v1/metrics
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_SERVICE_NAME: clientService
     depends_on:
       postgres_client:
         condition: service_healthy
