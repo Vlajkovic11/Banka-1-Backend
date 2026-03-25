@@ -1,6 +1,5 @@
 package com.banka1.verificationService.service;
 
-import com.banka1.verificationService.dto.event.VerificationGeneratedEvent;
 import com.banka1.verificationService.dto.request.GenerateRequest;
 import com.banka1.verificationService.dto.request.ValidateRequest;
 import com.banka1.verificationService.dto.response.GenerateResponse;
@@ -12,6 +11,8 @@ import com.banka1.verificationService.model.enums.VerificationStatus;
 import com.banka1.verificationService.repository.VerificationSessionRepository;
 import com.company.observability.starter.domain.UserIdExtractor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,7 +22,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -42,11 +45,14 @@ public class VerificationService {
     @Value("${rabbitmq.routing-key}")
     private String routingKey;
 
+    @Value("${rabbitmq.routing-key.verification}")
+    private String verificationRoutingKey;
+
     @Transactional
     public GenerateResponse generate(GenerateRequest request) {
-        String currentUserId = userIdExtractor.extractUserId()
-                .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN, "Unable to extract user ID from JWT"));
-        if (!currentUserId.equals(String.valueOf(request.getClientId()))) {
+        JwtAuthenticationToken auth = (JwtAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+        Object idClaim = auth.getToken().getClaims().get("id");
+        if (idClaim == null || !String.valueOf(idClaim).equals(String.valueOf(request.getClientId()))) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Cannot generate verification for other client");
         }
 
@@ -151,11 +157,12 @@ public class VerificationService {
     }
 
     private void publishGeneratedEvent(GenerateRequest request, String rawCode) {
-        VerificationGeneratedEvent event = new VerificationGeneratedEvent();
-        event.setClientId(request.getClientId());
-        event.setCode(rawCode);
-        event.setOperationType(request.getOperationType());
-        rabbitTemplate.convertAndSend(exchange, routingKey, event);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("userEmail", request.getClientEmail());
+        Map<String, String> templateVariables = new HashMap<>();
+        templateVariables.put("code", rawCode);
+        payload.put("templateVariables", templateVariables);
+        rabbitTemplate.convertAndSend(exchange, verificationRoutingKey, payload);
     }
 
     private String generateCode() {

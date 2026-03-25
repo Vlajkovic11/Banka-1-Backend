@@ -1,6 +1,7 @@
 package com.banka1.verificationService.dto.request;
 
 import com.banka1.verificationService.model.enums.OperationType;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -24,4 +25,9 @@ public class GenerateRequest {
     /** Obavezni ID povezanog entiteta (npr., ID transakcije ili zahteva). */
     @NotBlank(message = "relatedEntityId is required.")
     private String relatedEntityId;
+
+    /** Email adresa klijenta na koju se šalje verifikacioni kod. */
+    @NotBlank(message = "clientEmail is required.")
+    @Email(message = "clientEmail must be a valid email address.")
+    private String clientEmail;
 }
