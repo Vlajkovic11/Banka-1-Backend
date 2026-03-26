@@ -1,5 +1,6 @@
 package com.banka1.transaction_service.service.implementation;
 
+import com.banka1.transaction_service.domain.Payment;
 import com.banka1.transaction_service.domain.enums.TransactionStatus;
 import com.banka1.transaction_service.domain.enums.VerificationStatus;
 import com.banka1.transaction_service.dto.request.ApproveDto;
@@ -26,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,7 +51,7 @@ public class TransactionServiceImplementation implements TransactionService {
     private final ClientService clientService;
     @Value("${banka.security.id}")
     private String appPropertiesId;
-    @Value("banka.security.roles-claim")
+    @Value("${banka.security.roles-claim}")
     private String roles;
     private final TransactionServiceInternal transactionServiceInternal;
     private final PaymentRepository paymentRepository;
@@ -112,7 +115,48 @@ public class TransactionServiceImplementation implements TransactionService {
         if(accountDetailsResponseDto.getVlasnik()==null || !accountDetailsResponseDto.getVlasnik().equals(((Number) jwt.getClaim(appPropertiesId)).longValue()))
             throw new IllegalArgumentException("Nisi vlasnik racuna");
         }
-        return paymentRepository.searchPayments(accountNumber,transactionStatus,fromDate,toDate,initialAmountMin,initialAmountMax,finalAmountMin,finalAmountMax, PageRequest.of(page,size)).map(TransactionResponseDto::new);
+        Specification<Payment> specification = Specification.unrestricted();
+
+        if (accountNumber != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.or(
+                            cb.equal(root.get("fromAccountNumber"), accountNumber),
+                            cb.equal(root.get("toAccountNumber"), accountNumber)
+                    ));
+        }
+        if (transactionStatus != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.equal(root.get("status"), transactionStatus));
+        }
+        if (fromDate != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate));
+        }
+        if (toDate != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("createdAt"), toDate));
+        }
+        if (initialAmountMin != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("initialAmount"), initialAmountMin));
+        }
+        if (initialAmountMax != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("initialAmount"), initialAmountMax));
+        }
+        if (finalAmountMin != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.greaterThanOrEqualTo(root.get("finalAmount"), finalAmountMin));
+        }
+        if (finalAmountMax != null) {
+            specification = specification.and((root, query, cb) ->
+                    cb.lessThanOrEqualTo(root.get("finalAmount"), finalAmountMax));
+        }
+
+        return paymentRepository.findAll(
+                        specification,
+                        PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .map(TransactionResponseDto::new);
     }
 
 

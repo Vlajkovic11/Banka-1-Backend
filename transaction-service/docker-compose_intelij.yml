@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  postgres_transaction:
+    image: postgres:15
+    container_name: postgres_transaction
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ACCOUNT_DB_NAME}
+      POSTGRES_USER: ${ACCOUNT_DB_USER}
+      POSTGRES_PASSWORD: ${ACCOUNT_DB_PASSWORD}
+    ports:
+      - "${ACCOUNT_DB_PORT}:5432"
+    volumes:
+      - postgres_transaction_data:/var/lib/postgresql/data
+    networks:
+      - banka-network
+
+volumes:
+  postgres_transaction_data:
+
+networks:
+  banka-network:
+    driver: bridge
