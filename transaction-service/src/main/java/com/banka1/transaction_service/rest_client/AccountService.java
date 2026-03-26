@@ -19,7 +19,7 @@ public class AccountService {
     public InfoResponseDto getInfo(String fromBankNumber, String toBankNumber) {
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/info")
+                        .path("/internal/accounts/info")
                         .queryParam("fromBankNumber", fromBankNumber)
                         .queryParam("toBankNumber", toBankNumber)
                         .build())
@@ -29,7 +29,7 @@ public class AccountService {
 
     public UpdatedBalanceResponseDto transfer(PaymentDto paymentDto) {
         return restClient.post()
-                .uri("/transfer")
+                .uri("/internal/accounts/transfer")
                 .body(paymentDto)
                 .retrieve()
                 .body(UpdatedBalanceResponseDto.class);

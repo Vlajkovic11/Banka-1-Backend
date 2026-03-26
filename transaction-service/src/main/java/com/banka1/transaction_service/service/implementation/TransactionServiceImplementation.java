@@ -9,6 +9,9 @@ import com.banka1.transaction_service.dto.request.ValidateRequest;
 import com.banka1.transaction_service.dto.response.*;
 import com.banka1.transaction_service.exception.BusinessException;
 import com.banka1.transaction_service.exception.ErrorCode;
+import com.banka1.transaction_service.rabbitMQ.EmailDto;
+import com.banka1.transaction_service.rabbitMQ.EmailType;
+import com.banka1.transaction_service.rabbitMQ.RabbitClient;
 import com.banka1.transaction_service.rest_client.AccountService;
 import com.banka1.transaction_service.rest_client.ClientService;
 import com.banka1.transaction_service.rest_client.ExchangeService;
@@ -18,10 +21,12 @@ import com.banka1.transaction_service.service.TransactionServiceInternal;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,6 +35,7 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @Service
+@Slf4j
 public class TransactionServiceImplementation implements TransactionService {
 
     private final ExchangeService exchangeService;
@@ -39,6 +45,7 @@ public class TransactionServiceImplementation implements TransactionService {
     @Value("${banka.security.id}")
     private String appPropertiesId;
     private final TransactionServiceInternal transactionServiceInternal;
+
 
 
 //    @Transactional
@@ -54,20 +61,21 @@ public class TransactionServiceImplementation implements TransactionService {
         if(conversionResponseDto == null)
             throw new IllegalStateException("Greska sa account servisom");
         Long id=transactionServiceInternal.create(jwt,newPaymentDto,infoResponseDto,conversionResponseDto);
-        for(int i=0;true;i++) {
+        UpdatedBalanceResponseDto updatedBalanceResponseDto=null;
+        TransactionStatus transactionStatus = TransactionStatus.DENIED;
+        for(int i=0;i<3;i++) {
             try {
-                UpdatedBalanceResponseDto updatedBalanceResponseDto = accountService.transfer(new PaymentDto(newPaymentDto.getFromAccountNumber(), newPaymentDto.getToAccountNumber(), conversionResponseDto.fromAmount(), conversionResponseDto.toAmount(), conversionResponseDto.commission(), ((Number) jwt.getClaim(appPropertiesId)).longValue()));
-                transactionServiceInternal.finish(jwt, newPaymentDto, id, updatedBalanceResponseDto,TransactionStatus.COMPLETED);
+                updatedBalanceResponseDto = accountService.transfer(new PaymentDto(newPaymentDto.getFromAccountNumber(), newPaymentDto.getToAccountNumber(), conversionResponseDto.fromAmount(), conversionResponseDto.toAmount(), conversionResponseDto.commission(), ((Number) jwt.getClaim(appPropertiesId)).longValue()));
+                transactionStatus=TransactionStatus.COMPLETED;
                 break;
-            } catch (Exception e) {
-                if(i>=2)
-                {
-                    transactionServiceInternal.finish(jwt, newPaymentDto, id, null,TransactionStatus.DENIED);
-                    throw  e;
-                }
+            } catch (RestClientException e) {
+                log.warn("Transfer failed attempt {}", i, e);
             }
         }
-        return "Uspesan payment";
+        transactionServiceInternal.finish(jwt,infoResponseDto,id, transactionStatus);
+        if(transactionStatus==TransactionStatus.COMPLETED)
+            return "Uspesan payment";
+        return "Payment nije bio uspesan";
     }
 
 

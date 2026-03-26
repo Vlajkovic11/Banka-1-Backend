@@ -9,5 +9,5 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 public interface TransactionServiceInternal {
     Long create(Jwt jwt, NewPaymentDto newPaymentDto, InfoResponseDto infoResponseDto, ConversionResponseDto conversionResponseDto);
-    void finish(Jwt jwt, NewPaymentDto newPaymentDto, Long id, UpdatedBalanceResponseDto updatedBalanceResponseDto, TransactionStatus transactionStatus);
+    void finish(Jwt jwt,InfoResponseDto infoResponseDto, Long id, TransactionStatus transactionStatus);
 }

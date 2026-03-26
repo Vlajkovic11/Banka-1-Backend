@@ -9,6 +9,8 @@ import com.banka1.verificationService.service.VerificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +35,7 @@ public class VerificationController {
      * @return odgovor sa ID-om sesije
      */
     @PostMapping("/generate")
-    public ResponseEntity<GenerateResponse> generate(@Valid @RequestBody GenerateRequest request) {
+    public ResponseEntity<GenerateResponse> generate(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody GenerateRequest request) {
         return ResponseEntity.ok(verificationService.generate(request));
     }
 
@@ -44,7 +46,7 @@ public class VerificationController {
      * @return odgovor koji ukazuje na rezultat validacije i status sesije
      */
     @PostMapping("/validate")
-    public ResponseEntity<ValidateResponse> validate(@Valid @RequestBody ValidateRequest request) {
+    public ResponseEntity<ValidateResponse> validate(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody ValidateRequest request) {
         return ResponseEntity.ok(verificationService.validate(request));
     }
 
@@ -55,7 +57,7 @@ public class VerificationController {
      * @return trenutni status verifikacije
      */
     @GetMapping("/{sessionId}/status")
-    public ResponseEntity<VerificationStatus> getStatus(@PathVariable Long sessionId) {
+    public ResponseEntity<VerificationStatus> getStatus(@AuthenticationPrincipal Jwt jwt,@PathVariable Long sessionId) {
         return ResponseEntity.ok(verificationService.getStatus(sessionId));
     }
 }

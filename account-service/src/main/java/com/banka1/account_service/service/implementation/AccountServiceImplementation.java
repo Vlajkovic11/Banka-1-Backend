@@ -103,7 +103,7 @@ public class AccountServiceImplementation implements AccountService {
             throw new IllegalArgumentException("Ne postoji to racun");
         if(toAccount.getStatus()==Status.INACTIVE)
             throw new IllegalArgumentException("ToAccount nije aktivan");
-        return new InfoResponseDto(fromAccount.getCurrency().getOznaka(), toAccount.getCurrency().getOznaka(), fromAccount.getVlasnik(), toAccount.getVlasnik());
+        return new InfoResponseDto(fromAccount.getCurrency().getOznaka(), toAccount.getCurrency().getOznaka(), fromAccount.getVlasnik(), toAccount.getVlasnik(),fromAccount.getEmail(),fromAccount.getUsername());
 
     }
 }

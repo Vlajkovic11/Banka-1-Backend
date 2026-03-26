@@ -15,4 +15,6 @@ public class InfoResponseDto {
     private CurrencyCode toCurrencyCode;
     private Long fromVlasnik;
     private Long toVlasnik;
+    private String fromEmail;
+    private String fromUsername;
 }

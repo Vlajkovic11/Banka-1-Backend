@@ -7,6 +7,9 @@ import com.banka1.transaction_service.dto.request.NewPaymentDto;
 import com.banka1.transaction_service.dto.response.ConversionResponseDto;
 import com.banka1.transaction_service.dto.response.InfoResponseDto;
 import com.banka1.transaction_service.dto.response.UpdatedBalanceResponseDto;
+import com.banka1.transaction_service.rabbitMQ.EmailDto;
+import com.banka1.transaction_service.rabbitMQ.EmailType;
+import com.banka1.transaction_service.rabbitMQ.RabbitClient;
 import com.banka1.transaction_service.repository.PaymentRepository;
 import com.banka1.transaction_service.service.TransactionServiceInternal;
 import lombok.Getter;
@@ -17,6 +20,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 
@@ -28,9 +33,9 @@ import java.time.LocalDateTime;
 @Transactional
 public class TransactionServiceInternalImplementation implements TransactionServiceInternal {
     private final PaymentRepository paymentRepository;
+    private final RabbitClient rabbitClient;
 
     @Override
-    @Transactional
     public Long create(Jwt jwt, NewPaymentDto newPaymentDto, InfoResponseDto infoResponseDto, ConversionResponseDto conversionResponseDto) {
         Payment payment=new Payment();
         payment.setFromAccountNumber(newPaymentDto.getFromAccountNumber());
@@ -53,15 +58,21 @@ public class TransactionServiceInternalImplementation implements TransactionServ
     }
 
     @Override
-    @Transactional
-    public void finish(Jwt jwt, NewPaymentDto newPaymentDto, Long id, UpdatedBalanceResponseDto updatedBalanceResponseDto, TransactionStatus transactionStatus) {
+    public void finish(Jwt jwt, InfoResponseDto infoResponseDto, Long id, TransactionStatus transactionStatus) {
         Payment payment=paymentRepository.findById(id).orElseThrow(()->new IllegalStateException("Greska u sistemu, nije sacuvao entitet"));
         payment.setStatus(transactionStatus);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                rabbitClient.sendEmailNotification(new EmailDto(infoResponseDto.getFromEmail(),infoResponseDto.getFromUsername(), (transactionStatus==TransactionStatus.COMPLETED)?EmailType.TRANSACTION_COMPLETED:EmailType.TRANSACTION_DENIED));
+
+            }
+        });
+
     }
 
 
     @Scheduled(fixedRate = 100000)
-    @Transactional
     public void cleanup() {
         int updated = paymentRepository.markStuckPayments(
                 TransactionStatus.IN_PROGRESS,
