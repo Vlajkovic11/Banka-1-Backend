@@ -1,7 +1,6 @@
 package com.banka1.transfer.dto.client;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 
 /**
@@ -13,7 +12,7 @@ public record ExchangeResponseDto(
         BigDecimal fromAmount, // Iznos u izvornoj valuti
         BigDecimal toAmount,   // Iznos u ciljnoj valuti nakon konverzije
         BigDecimal rate,       // Primenjeni kurs
-        BigDecimal commission, // Obračunata provizija
-        LocalDate date         // Datum kursne liste korišćene za konverziju
+        BigDecimal commission // Obračunata provizija
+        // Datum kursne liste korišćene za konverziju
 ) {}
 
