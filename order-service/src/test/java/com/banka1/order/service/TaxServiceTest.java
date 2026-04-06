@@ -4,6 +4,7 @@ import com.banka1.order.client.AccountClient;
 import com.banka1.order.client.ExchangeClient;
 import com.banka1.order.dto.ExchangeRateDto;
 import com.banka1.order.dto.AccountDetailsDto;
+import com.banka1.order.dto.TaxDebtResponse;
 import com.banka1.order.dto.client.PaymentDto;
 import com.banka1.order.dto.response.UpdatedBalanceResponseDto;
 import com.banka1.order.entity.Order;
@@ -105,6 +106,103 @@ class TaxServiceTest {
 
         verify(accountClient, times(1)).transaction(any(PaymentDto.class));
         verify(notificationProducer, times(1)).sendTaxCollected(any());
+    }
+
+    @Test
+    void collectMonthlyTaxManually_shouldDelegateToCollectMonthlyTax() {
+        when(transactionRepository.findByTimestampBetween(any(), any()))
+                .thenReturn(List.of(tx));
+
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(portfolioRepository.findByUserIdAndListingId(5L, 100L))
+                .thenReturn(Optional.of(portfolio));
+
+        AccountDetailsDto seller = new AccountDetailsDto();
+        seller.setAccountNumber("ACC-SELL-1");
+        seller.setCurrency("RSD");
+        when(accountClient.getAccountDetailsById(20L)).thenReturn(seller);
+
+        ExchangeRateDto conv = new ExchangeRateDto();
+        conv.setConvertedAmount(new BigDecimal("15.00"));
+        conv.setExchangeRate(BigDecimal.ONE);
+        when(exchangeClient.calculate("RSD", "RSD", new BigDecimal("15.00")))
+                .thenReturn(conv);
+
+        AccountDetailsDto govt = new AccountDetailsDto();
+        govt.setAccountNumber("ACC-GOVT");
+        when(accountClient.getGovernmentBankAccountRsd()).thenReturn(govt);
+
+        when(accountClient.transaction(any(PaymentDto.class)))
+                .thenReturn(new UpdatedBalanceResponseDto(new BigDecimal("1000"), new BigDecimal("500")));
+
+        taxService.collectMonthlyTaxManually();
+
+        verify(accountClient, times(1)).transaction(any(PaymentDto.class));
+        verify(notificationProducer, times(1)).sendTaxCollected(any());
+    }
+
+    @Test
+    void getUserDebt_shouldCalculateCorrectly() {
+        when(transactionRepository.findAll()).thenReturn(List.of(tx));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(portfolioRepository.findByUserIdAndListingId(5L, 100L))
+                .thenReturn(Optional.of(portfolio));
+
+        TaxDebtResponse response = taxService.getUserDebt(5L);
+
+        BigDecimal expected = new BigDecimal("15.00");
+
+        assert response.getUserId().equals(5L);
+        assert response.getDebtRsd().compareTo(expected) == 0;
+    }
+
+    @Test
+    void getUserDebt_shouldReturnZeroWhenUserNotFound() {
+        when(transactionRepository.findAll()).thenReturn(List.of(tx));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+
+        TaxDebtResponse response = taxService.getUserDebt(999L);
+
+        assert response.getUserId().equals(999L);
+        assert response.getDebtRsd().compareTo(BigDecimal.ZERO) == 0;
+    }
+
+    @Test
+    void getAllDebts_shouldAggregateCorrectly() {
+        when(transactionRepository.findAll()).thenReturn(List.of(tx));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(portfolioRepository.findByUserIdAndListingId(5L, 100L))
+                .thenReturn(Optional.of(portfolio));
+
+        List<TaxDebtResponse> result = taxService.getAllDebts();
+
+        assert result.size() == 1;
+        assert result.get(0).getUserId().equals(5L);
+        assert result.get(0).getDebtRsd().compareTo(new BigDecimal("15.00")) == 0;
+    }
+
+    @Test
+    void shouldIgnoreBuyOrders() {
+        order.setDirection(com.banka1.order.entity.enums.OrderDirection.BUY);
+
+        when(transactionRepository.findAll()).thenReturn(List.of(tx));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+
+        TaxDebtResponse response = taxService.getUserDebt(5L);
+
+        assert response.getDebtRsd().compareTo(BigDecimal.ZERO) == 0;
+    }
+
+    @Test
+    void shouldSkipWhenPortfolioMissing() {
+        when(transactionRepository.findAll()).thenReturn(List.of(tx));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(portfolioRepository.findByUserIdAndListingId(5L, 100L))
+                .thenReturn(Optional.empty());
+
+        TaxDebtResponse response = taxService.getUserDebt(5L);
+
+        assert response.getDebtRsd().compareTo(BigDecimal.ZERO) == 0;
     }
 }
 
