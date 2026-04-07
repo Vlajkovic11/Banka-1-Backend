@@ -1,0 +1,4 @@
+Ticker,Name,Contract Size,Contract Unit,Settlement Date
+CORNSEP26,Corn Futures September 2026,5000,Kilogram,2026-09-15
+BRENTNOV26,Brent Oil Futures November 2026,1000,Barrel,2026-11-20
+MILKAUG26,Milk Futures August 2026,2000,Liter,2026-08-10

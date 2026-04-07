@@ -1,7 +1,7 @@
 package com.banka1.stock_service.controller;
 
 import com.banka1.stock_service.dto.StockExchangeImportResponse;
-import com.banka1.stock_service.service.CsvImportService;
+import com.banka1.stock_service.service.StockExchangeCsvImportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class StockExchangeAdminController {
 
-    private final CsvImportService stockExchangeCsvImportService;
+    private final StockExchangeCsvImportService stockExchangeCsvImportService;
 
     /**
      * Triggers a manual import of stock exchange data from the configured CSV resource.

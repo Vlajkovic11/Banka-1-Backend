@@ -7,6 +7,7 @@ The service currently provides:
 - a standalone Spring Boot module inside the monorepo
 - PostgreSQL connectivity and Liquibase bootstrap migrations
 - persisted stock exchange reference data with CSV import support
+- persisted futures contract reference data with CSV import support
 - stock exchange work-time/status endpoints
 - JWT authentication through `security-lib`
 - observability integration through `company-observability-starter`
@@ -33,7 +34,9 @@ The service uses:
 - `ExchangeServiceClient` adapter for `exchange-service`
 - `StockExchange` JPA entity and repository
 - `Stock` JPA entity and repository
+- `FuturesContract` JPA entity and repository
 - startup/admin CSV import flow for stock exchange reference data
+- startup CSV import flow for futures contract reference data
 - stock exchange listing and market-status API
 - stock exchange active-toggle endpoint for testing
 - timezone/session-based market-phase calculation
@@ -57,6 +60,7 @@ That means:
 - internal integration with `exchange-service` exists
 - stock exchange reference data can be imported from CSV into the database
 - stock instrument metadata can now be persisted as a dedicated `stock` entity
+- futures contract metadata can now be persisted as a dedicated `futures_contract` entity
 - stock exchange work-time checks are implemented
 - holiday support is intentionally left behind an interface and currently uses a no-op stub
 
@@ -68,8 +72,8 @@ The most important parts of the service are:
 - `security` JWT configuration for the resource server
 - `client` adapter for calling `exchange-service`
 - `controller` bootstrap REST endpoints
-- `repository` persistence access for stock exchanges
-- `domain` persisted stock exchange and stock entities with derived stock calculations
+- `repository` persistence access for stock exchanges, stocks, and futures contracts
+- `domain` persisted stock exchange, stock, and futures contract entities with derived calculations
 - `service` CSV import, startup seeding, holiday abstraction, and market-status logic
 - `dto` request/response models for internal responses
 
@@ -251,6 +255,7 @@ The stock-service schema currently includes:
 - `src/main/resources/db/changelog/001-baseline.sql`
 - `src/main/resources/db/changelog/002-create-stock-exchange.sql`
 - `src/main/resources/db/changelog/003-create-stock.sql`
+- `src/main/resources/db/changelog/004-create-futures-contract.sql`
 
 The `stock_exchange` table stores exchange metadata and trading sessions used by the CSV import flow.
 
@@ -261,11 +266,23 @@ The `stock` table stores:
 - outstanding share count
 - dividend yield
 
+The `futures_contract` table stores:
+
+- unique ticker
+- display name
+- contract size
+- contract unit
+- settlement date
+
 Derived values are intentionally kept in the Java domain model instead of being persisted:
 
 - `contractSize` is a constant with value `1`
 - `maintenanceMargin(price)` is calculated as `0.5 * price`
 - `marketCap(price)` is calculated as `outstandingShares * price`
+
+For `futures_contract`:
+
+- `maintenanceMargin(price)` is calculated as `contractSize * price * 0.10`
 
 Liquibase scripts are located in:
 
@@ -330,6 +347,7 @@ STOCK_DB_PASSWORD=postgres
 JWT_SECRET=local_stock_dev_secret_at_least_32_chars
 STOCK_EXCHANGE_SERVICE_URL=http://localhost:8085
 STOCK_EXCHANGE_SEED_CSV_LOCATION=classpath:seed/exchanges.csv
+STOCK_FUTURES_SEED_CSV_LOCATION=classpath:seed/futures_seed.csv
 STOCK_MARKET_DATA_BASE_URL=https://api.twelvedata.com
 STOCK_MARKET_DATA_API_KEY=replace_with_provider_api_key
 ```
@@ -347,6 +365,8 @@ Most important properties:
 | `stock.exchange-service.base-url` | base URL for the internal `exchange-service` call |
 | `stock.exchange-seed.enabled` | enables or disables automatic CSV seeding on startup |
 | `stock.exchange-seed.csv-location` | Spring resource location of the stock exchange CSV seed file |
+| `stock.futures-seed.enabled` | enables or disables automatic CSV seeding of futures contracts on startup |
+| `stock.futures-seed.csv-location` | Spring resource location of the futures contract CSV seed file |
 | `stock.market-data.base-url` | base URL for the external stock market data provider |
 | `stock.market-data.api-key` | API key for the external market data provider |
 | `stock.market-data.default-exchange` | default exchange for future stock queries |
@@ -360,10 +380,11 @@ When the service starts, it:
 3. connects to the PostgreSQL database
 4. lets Liquibase validate and execute migrations if needed
 5. imports stock exchange reference data from the configured CSV file if seeding is enabled
-6. registers the JWT decoder and security filter chain from `security-lib`
-7. registers the `RestClient` bean for `exchange-service`
-8. exposes the stock exchange REST endpoints
-9. exposes the actuator health endpoints
+6. imports futures contract reference data from the configured CSV file if seeding is enabled
+7. registers the JWT decoder and security filter chain from `security-lib`
+8. registers the `RestClient` bean for `exchange-service`
+9. exposes the stock exchange REST endpoints
+10. exposes the actuator health endpoints
 
 ## CSV Seed Format
 
@@ -371,7 +392,7 @@ The default seed file is:
 
 - `src/main/resources/seed/exchanges.csv`
 
-The importer supports the current production-oriented format:
+The importer supports only the current production-oriented format:
 
 - `Exchange Name`
 - `Exchange Acronym`
@@ -381,12 +402,6 @@ The importer supports the current production-oriented format:
 - `Time Zone`
 - `Open Time`
 - `Close Time`
-
-It also remains backward-compatible with the earlier column names:
-
-- `Acronym`
-- `MIC Code`
-- `Polity`
 
 Optional columns:
 
@@ -402,6 +417,26 @@ Defaulting behavior for the new `exchanges.csv`:
 - if `Is Active` is missing, the importer defaults it to `true`
 
 That means the new seed file is valid even though it currently contains only regular market hours.
+
+The futures seed file is:
+
+- `src/main/resources/seed/futures_seed.csv`
+
+It uses this format:
+
+- `Ticker`
+- `Name`
+- `Contract Size`
+- `Contract Unit`
+- `Settlement Date`
+
+Supported `Contract Unit` values are:
+
+- `Kilogram`
+- `Liter`
+- `Barrel`
+
+`Settlement Date` must be in ISO format `yyyy-MM-dd`.
 
 ## Local Development
 
@@ -494,6 +529,7 @@ Note:
 - unit tests cover the CSV parsing and idempotent import logic
 - unit tests also cover market-phase calculation and controller security for the new stock exchange endpoints
 - unit tests now also cover the new `Stock` entity derived calculations and JPA/Liquibase persistence mapping
+- unit tests now also cover futures contract CSV import, derived maintenance margin, and JPA/Liquibase persistence mapping
 - the tests do not start the full application stack
 
 ## Swagger and OpenAPI

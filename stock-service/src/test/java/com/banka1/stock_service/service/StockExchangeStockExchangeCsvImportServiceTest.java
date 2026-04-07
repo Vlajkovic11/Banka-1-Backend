@@ -24,17 +24,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link CsvImportService}.
+ * Unit tests for {@link StockExchangeCsvImportService}.
  */
 @ExtendWith(MockitoExtension.class)
-class StockExchangeCsvImportServiceTest {
+class StockExchangeStockExchangeCsvImportServiceTest {
 
     @Mock
     private StockExchangeRepository stockExchangeRepository;
 
     @Test
     void importFromResourceCreatesNewExchangesFromCsv() {
-        CsvImportService service = createService();
+        StockExchangeCsvImportService service = createService();
         when(stockExchangeRepository.findAllByExchangeMICCodeIn(any())).thenReturn(List.of());
         when(stockExchangeRepository.saveAll(any())).thenAnswer(invocation -> List.of());
 
@@ -80,7 +80,7 @@ class StockExchangeCsvImportServiceTest {
         existingExchange.setPostMarketCloseTime(LocalTime.of(20, 0));
         existingExchange.setIsActive(true);
 
-        CsvImportService service = createService();
+        StockExchangeCsvImportService service = createService();
         when(stockExchangeRepository.findAllByExchangeMICCodeIn(any())).thenReturn(List.of(existingExchange));
         when(stockExchangeRepository.saveAll(any())).thenAnswer(invocation -> List.of(existingExchange));
 
@@ -117,7 +117,7 @@ class StockExchangeCsvImportServiceTest {
         existingExchange.setPostMarketCloseTime(LocalTime.of(20, 0));
         existingExchange.setIsActive(true);
 
-        CsvImportService service = createService();
+        StockExchangeCsvImportService service = createService();
         when(stockExchangeRepository.findAllByExchangeMICCodeIn(any())).thenReturn(List.of(existingExchange));
 
         StockExchangeImportResponse response = service.importFromResource(
@@ -137,7 +137,7 @@ class StockExchangeCsvImportServiceTest {
 
     @Test
     void importFromResourceRejectsDuplicateMicCodesInsideCsv() {
-        CsvImportService service = createService();
+        StockExchangeCsvImportService service = createService();
 
         assertThatThrownBy(() -> service.importFromResource(
                 csvResource("""
@@ -150,8 +150,8 @@ class StockExchangeCsvImportServiceTest {
                 .hasMessageContaining("Duplicate MIC code 'XNYS'");
     }
 
-    private CsvImportService createService() {
-        return new CsvImportService(
+    private StockExchangeCsvImportService createService() {
+        return new StockExchangeCsvImportService(
                 stockExchangeRepository,
                 new StockExchangeSeedProperties(true, "classpath:seed/exchanges.csv"),
                 new DefaultResourceLoader()

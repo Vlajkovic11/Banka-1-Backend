@@ -7,7 +7,7 @@ CREATE TABLE stock_exchange (
     exchange_acronym VARCHAR(50) NOT NULL,
     exchange_mic_code VARCHAR(20) NOT NULL,
     polity VARCHAR(100) NOT NULL,
-    currency VARCHAR(10) NOT NULL,
+    currency VARCHAR(100) NOT NULL,
     time_zone VARCHAR(100) NOT NULL,
     open_time TIME NOT NULL,
     close_time TIME NOT NULL,

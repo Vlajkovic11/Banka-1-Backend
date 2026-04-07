@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-public class CsvImportService {
+public class StockExchangeCsvImportService {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("H:mm");
     private static final List<String> REQUIRED_HEADERS = List.of(
