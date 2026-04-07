@@ -41,6 +41,7 @@ public class LoanRequest extends BaseEntity{
     private EmploymentStatus employmentStatus;
     @Column(nullable = false)
     private Integer currentEmploymentPeriod;
+    @Positive
     @Column(nullable = false)
     private Integer repaymentPeriod;
     //todo validacija za telefon mozda

@@ -131,17 +131,19 @@ public class TransactionServiceImplementation implements TransactionService {
     @Transactional
     @Override
     public Page<TransactionResponseDto> findAllTransactions(Jwt jwt, String accountNumber, int page, int size) {
-        AccountDetailsResponseDto accountDetailsResponseDto=accountService.getDetails(accountNumber);
-        if(accountDetailsResponseDto == null)
-            throw new IllegalStateException("Sistemska greska");
-        if(accountDetailsResponseDto.getVlasnik()==null || !accountDetailsResponseDto.getVlasnik().equals(((Number) jwt.getClaim(appPropertiesId)).longValue()))
-            throw new IllegalArgumentException("Nisi vlasnik racuna");
+        if(jwt.getClaimAsString(roles).equalsIgnoreCase("CLIENT_BASIC")) {
+            AccountDetailsResponseDto accountDetailsResponseDto = accountService.getDetails(accountNumber);
+            if (accountDetailsResponseDto == null)
+                throw new IllegalStateException("Sistemska greska");
+            if (accountDetailsResponseDto.getVlasnik() == null || !accountDetailsResponseDto.getVlasnik().equals(((Number) jwt.getClaim(appPropertiesId)).longValue()))
+                throw new IllegalArgumentException("Nisi vlasnik racuna");
+        }
         return paymentRepository.findByAccountNumber(accountNumber, PageRequest.of(page,size)).map(TransactionResponseDto::new);
     }
 
     @Override
     public Page<TransactionResponseDto> findPayments(Jwt jwt, String accountNumber, TransactionStatus transactionStatus, LocalDateTime fromDate, LocalDateTime toDate, BigDecimal initialAmountMin, BigDecimal initialAmountMax, BigDecimal finalAmountMin, BigDecimal finalAmountMax, int page, int size) {
-        if(!jwt.getClaimAsString(roles).equalsIgnoreCase("ADMIN"))
+        if(jwt.getClaimAsString(roles).equalsIgnoreCase("CLIENT_BASIC"))
         {
         AccountDetailsResponseDto accountDetailsResponseDto=accountService.getDetails(accountNumber);
         if(accountDetailsResponseDto == null)

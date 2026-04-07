@@ -3,6 +3,7 @@ package com.banka1.credit_service.domain;
 import com.banka1.credit_service.domain.enums.CurrencyCode;
 import com.banka1.credit_service.domain.enums.InterestType;
 import com.banka1.credit_service.domain.enums.LoanType;
+import com.banka1.credit_service.domain.enums.Status;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
@@ -55,6 +56,9 @@ public class Loan extends BaseEntity{
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CurrencyCode currency;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status;
 
     //todo dodati listu installmenta ako mi treba
 
