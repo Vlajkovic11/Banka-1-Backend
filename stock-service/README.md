@@ -7,6 +7,7 @@ The service currently provides:
 - a standalone Spring Boot module inside the monorepo
 - PostgreSQL connectivity and Liquibase bootstrap migrations
 - persisted stock exchange reference data with CSV import support
+- stock exchange work-time/status endpoints
 - JWT authentication through `security-lib`
 - observability integration through `company-observability-starter`
 - a REST adapter to `exchange-service`
@@ -32,6 +33,10 @@ The service uses:
 - `ExchangeServiceClient` adapter for `exchange-service`
 - `StockExchange` JPA entity and repository
 - startup/admin CSV import flow for stock exchange reference data
+- stock exchange listing and market-status API
+- stock exchange active-toggle endpoint for testing
+- timezone/session-based market-phase calculation
+- `HolidayService` extension point with a temporary no-op implementation
 - public `GET /info` endpoint
 - protected `GET /exchange/info` endpoint
 - protected `POST /admin/stock-exchanges/import` endpoint
@@ -50,7 +55,8 @@ That means:
 - authentication and health checks work
 - internal integration with `exchange-service` exists
 - stock exchange reference data can be imported from CSV into the database
-- stock business endpoints beyond reference-data bootstrap are still pending
+- stock exchange work-time checks are implemented
+- holiday support is intentionally left behind an interface and currently uses a no-op stub
 
 ## Package Structure
 
@@ -61,7 +67,7 @@ The most important parts of the service are:
 - `client` adapter for calling `exchange-service`
 - `controller` bootstrap REST endpoints
 - `repository` persistence access for stock exchanges
-- `service` CSV import and startup seeding logic
+- `service` CSV import, startup seeding, holiday abstraction, and market-status logic
 - `dto` request/response models for internal responses
 
 ## API Endpoints
@@ -70,6 +76,9 @@ Inside the service itself, the routes are:
 
 - `GET /info`
 - `GET /exchange/info`
+- `GET /api/stock-exchanges`
+- `GET /api/stock-exchanges/{id}/is-open`
+- `PUT /api/stock-exchanges/{id}/toggle-active`
 - `POST /admin/stock-exchanges/import`
 - `GET /actuator/health`
 - `GET /actuator/health/liveness`
@@ -79,6 +88,9 @@ Through the API gateway, the same routes are available under the prefix:
 
 - `GET /stock/info`
 - `GET /stock/exchange/info`
+- `GET /stock/api/stock-exchanges`
+- `GET /stock/api/stock-exchanges/{id}/is-open`
+- `PUT /stock/api/stock-exchanges/{id}/toggle-active`
 - `POST /stock/admin/stock-exchanges/import`
 
 Note:
@@ -136,11 +148,94 @@ Example response:
 
 ```json
 {
-  "source": "classpath:seed/stock-exchanges.csv",
+  "source": "classpath:seed/exchanges.csv",
   "processedRows": 10,
   "createdCount": 10,
   "updatedCount": 0,
   "unchangedCount": 0
+}
+```
+
+### `GET /api/stock-exchanges`
+
+Returns the persisted stock exchange catalog sorted by exchange name.
+
+The response includes:
+
+- exchange identity fields
+- polity/currency/time-zone metadata
+- regular market hours
+- optional pre-market and post-market session windows
+- current `isActive` toggle state
+
+Authentication:
+
+- requires any valid JWT
+
+### `GET /api/stock-exchanges/{id}/is-open`
+
+Returns the calculated trading status for a single exchange.
+
+The status calculation works like this:
+
+1. current time is converted into the exchange-local timezone from `timeZone`
+2. the local date is checked for weekend
+3. the local date is passed to `HolidayService`
+4. a trading day is defined as `!weekend && !holiday`
+5. local time is compared against pre-market, regular, and post-market session windows
+6. if `isActive == false`, the exchange is treated as effectively open for testing
+
+Returned status fields include:
+
+- `localDate`
+- `localTime`
+- `workingDay`
+- `holiday`
+- `open`
+- `regularMarketOpen`
+- `testModeBypassEnabled`
+- `marketPhase`
+
+`marketPhase` can be:
+
+- `CLOSED`
+- `PRE_MARKET`
+- `REGULAR_MARKET`
+- `POST_MARKET`
+
+Important note about holidays:
+
+- the service already contains the `HolidayService` abstraction
+- the current implementation is `NoOpHolidayService`
+- that means `holiday` currently resolves to `false` for all dates
+- today the runtime behavior therefore depends on timezone, weekend, session windows, and `isActive`
+- later the no-op implementation can be replaced by a deterministic DB- or seed-backed calendar without changing the main `is-open` logic
+
+### `PUT /api/stock-exchanges/{id}/toggle-active`
+
+Flips the `isActive` flag of one exchange.
+
+Purpose:
+
+- testing the work-time check without depending on the real trading calendar
+
+Behavior:
+
+- when `isActive == true`, normal work-time/session rules are used
+- when `isActive == false`, the exchange is treated as effectively open
+
+Authentication:
+
+- only `ADMIN` and `SUPERVISOR` may call this endpoint
+
+Example response:
+
+```json
+{
+  "id": 15,
+  "exchangeName": "Nasdaq",
+  "exchangeMICCode": "XNAS",
+  "isActive": false
 }
 ```
 
@@ -179,6 +274,11 @@ Public routes are:
 
 All other routes require a valid JWT token.
 
+Additional role rules:
+
+- `PUT /api/stock-exchanges/{id}/toggle-active` requires `ADMIN` or `SUPERVISOR`
+- the listing and `is-open` endpoints only require authentication
+
 The local JWT decoder uses the shared HMAC secret from:
 
 - `JWT_SECRET`
@@ -212,6 +312,7 @@ STOCK_DB_USER=postgres
 STOCK_DB_PASSWORD=postgres
 JWT_SECRET=local_stock_dev_secret_at_least_32_chars
 STOCK_EXCHANGE_SERVICE_URL=http://localhost:8085
+STOCK_EXCHANGE_SEED_CSV_LOCATION=classpath:seed/exchanges.csv
 STOCK_MARKET_DATA_BASE_URL=https://api.twelvedata.com
 STOCK_MARKET_DATA_API_KEY=replace_with_provider_api_key
 ```
@@ -244,7 +345,46 @@ When the service starts, it:
 5. imports stock exchange reference data from the configured CSV file if seeding is enabled
 6. registers the JWT decoder and security filter chain from `security-lib`
 7. registers the `RestClient` bean for `exchange-service`
-8. exposes the actuator health endpoints
+8. exposes the stock exchange REST endpoints
+9. exposes the actuator health endpoints
+
+## CSV Seed Format
+
+The default seed file is:
+
+- `src/main/resources/seed/exchanges.csv`
+
+The importer supports the current production-oriented format:
+
+- `Exchange Name`
+- `Exchange Acronym`
+- `Exchange Mic Code`
+- `Country`
+- `Currency`
+- `Time Zone`
+- `Open Time`
+- `Close Time`
+
+It also remains backward-compatible with the earlier column names:
+
+- `Acronym`
+- `MIC Code`
+- `Polity`
+
+Optional columns:
+
+- `Pre Market Open Time`
+- `Pre Market Close Time`
+- `Post Market Open Time`
+- `Post Market Close Time`
+- `Is Active`
+
+Defaulting behavior for the new `exchanges.csv`:
+
+- if pre/post-market columns are missing, those session windows are stored as `null`
+- if `Is Active` is missing, the importer defaults it to `true`
+
+That means the new seed file is valid even though it currently contains only regular market hours.
 
 ## Local Development
 
@@ -335,6 +475,7 @@ If you also want the build artifact:
 Note:
 
 - unit tests cover the CSV parsing and idempotent import logic
+- unit tests also cover market-phase calculation and controller security for the new stock exchange endpoints
 - the tests do not start the full application stack
 
 ## Swagger and OpenAPI
@@ -372,9 +513,31 @@ The requested acceptance criteria are covered:
 - the health endpoint exists
 - the `exchange-service` RestClient adapter exists
 
+Additionally, the service now includes:
+
+- stock exchange listing
+- stock exchange `is-open` checks
+- market phase detection
+- test toggle support for active/inactive exchanges
+
 ### Why does `/exchange/info` require JWT while `/info` does not?
 
 Because `/info` is intentionally left public as a bootstrap/info endpoint, while `/exchange/info` is intentionally protected to verify both resource-server security and internal service communication.
+
+### Do holidays affect `is-open` today?
+
+Architecturally yes, operationally not yet.
+
+The `is-open` logic already depends on `HolidayService`, but the current implementation is `NoOpHolidayService`, which always returns `false`.
+
+So today the real behavior is:
+
+- timezone-aware local time
+- weekend detection
+- regular/pre/post-market session windows
+- `isActive` testing override
+
+The abstraction exists so a deterministic holiday source can be added later without refactoring the main status logic.
 
 ### Is the route `/stock/` or `/stocks/`?
 

@@ -13,6 +13,13 @@ import java.util.Optional;
 public interface StockExchangeRepository extends JpaRepository<StockExchange, Long> {
 
     /**
+     * Loads all exchanges sorted by display name.
+     *
+     * @return all persisted exchanges
+     */
+    List<StockExchange> findAllByOrderByExchangeNameAsc();
+
+    /**
      * Finds a stock exchange by its MIC code.
      *
      * @param exchangeMICCode unique MIC code

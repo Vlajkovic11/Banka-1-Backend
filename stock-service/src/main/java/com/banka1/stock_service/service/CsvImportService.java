@@ -38,21 +38,24 @@ import java.util.stream.Collectors;
 public class CsvImportService {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("H:mm");
-    private static final List<String> REQUIRED_HEADERS = List.of(
-            "Exchange Name",
-            "Acronym",
-            "MIC Code",
-            "Polity",
-            "Currency",
-            "Time Zone",
-            "Open Time",
-            "Close Time",
-            "Pre Market Open Time",
-            "Pre Market Close Time",
-            "Post Market Open Time",
-            "Post Market Close Time",
-            "Is Active"
+    private static final List<List<String>> REQUIRED_HEADER_ALIASES = List.of(
+            List.of("Exchange Name"),
+            List.of("Acronym", "Exchange Acronym"),
+            List.of("MIC Code", "Exchange Mic Code"),
+            List.of("Polity", "Country"),
+            List.of("Currency"),
+            List.of("Time Zone"),
+            List.of("Open Time"),
+            List.of("Close Time")
     );
+    private static final List<String> ACRONYM_HEADERS = List.of("Acronym", "Exchange Acronym");
+    private static final List<String> MIC_CODE_HEADERS = List.of("MIC Code", "Exchange Mic Code");
+    private static final List<String> POLITY_HEADERS = List.of("Polity", "Country");
+    private static final List<String> PRE_MARKET_OPEN_HEADERS = List.of("Pre Market Open Time");
+    private static final List<String> PRE_MARKET_CLOSE_HEADERS = List.of("Pre Market Close Time");
+    private static final List<String> POST_MARKET_OPEN_HEADERS = List.of("Post Market Open Time");
+    private static final List<String> POST_MARKET_CLOSE_HEADERS = List.of("Post Market Close Time");
+    private static final List<String> IS_ACTIVE_HEADERS = List.of("Is Active");
 
     private final StockExchangeRepository stockExchangeRepository;
     private final StockExchangeSeedProperties stockExchangeSeedProperties;
@@ -71,7 +74,7 @@ public class CsvImportService {
     /**
      * Imports stock exchanges from the provided Spring resource location.
      *
-     * @param csvLocation Spring resource location, for example {@code classpath:seed/stock-exchanges.csv}
+     * @param csvLocation Spring resource location, for example {@code classpath:seed/exchanges.csv}
      * @return import summary
      */
     @Transactional
@@ -206,10 +209,10 @@ public class CsvImportService {
     }
 
     private void validateHeaders(Map<String, Integer> headerIndexes, String source) {
-        for (String requiredHeader : REQUIRED_HEADERS) {
-            if (!headerIndexes.containsKey(requiredHeader)) {
+        for (List<String> aliases : REQUIRED_HEADER_ALIASES) {
+            if (resolveHeader(headerIndexes, aliases) == null) {
                 throw new IllegalArgumentException(
-                        "Missing required CSV header '" + requiredHeader + "' in " + source
+                        "Missing required CSV header. Expected one of " + aliases + " in " + source
                 );
             }
         }
@@ -222,44 +225,57 @@ public class CsvImportService {
             String source
     ) {
         return new StockExchangeCsvRow(
-                requiredValue(values, headerIndexes, "Exchange Name", lineNumber, source),
-                requiredValue(values, headerIndexes, "Acronym", lineNumber, source),
-                requiredValue(values, headerIndexes, "MIC Code", lineNumber, source),
-                requiredValue(values, headerIndexes, "Polity", lineNumber, source),
-                requiredValue(values, headerIndexes, "Currency", lineNumber, source),
-                requiredValue(values, headerIndexes, "Time Zone", lineNumber, source),
-                parseTime(requiredValue(values, headerIndexes, "Open Time", lineNumber, source), "Open Time", lineNumber, source),
-                parseTime(requiredValue(values, headerIndexes, "Close Time", lineNumber, source), "Close Time", lineNumber, source),
-                parseOptionalTime(optionalValue(values, headerIndexes, "Pre Market Open Time"), "Pre Market Open Time", lineNumber, source),
-                parseOptionalTime(optionalValue(values, headerIndexes, "Pre Market Close Time"), "Pre Market Close Time", lineNumber, source),
-                parseOptionalTime(optionalValue(values, headerIndexes, "Post Market Open Time"), "Post Market Open Time", lineNumber, source),
-                parseOptionalTime(optionalValue(values, headerIndexes, "Post Market Close Time"), "Post Market Close Time", lineNumber, source),
-                parseBoolean(requiredValue(values, headerIndexes, "Is Active", lineNumber, source), lineNumber, source)
+                requiredValue(values, headerIndexes, List.of("Exchange Name"), lineNumber, source),
+                requiredValue(values, headerIndexes, ACRONYM_HEADERS, lineNumber, source),
+                requiredValue(values, headerIndexes, MIC_CODE_HEADERS, lineNumber, source),
+                requiredValue(values, headerIndexes, POLITY_HEADERS, lineNumber, source),
+                requiredValue(values, headerIndexes, List.of("Currency"), lineNumber, source),
+                requiredValue(values, headerIndexes, List.of("Time Zone"), lineNumber, source),
+                parseTime(requiredValue(values, headerIndexes, List.of("Open Time"), lineNumber, source), "Open Time", lineNumber, source),
+                parseTime(requiredValue(values, headerIndexes, List.of("Close Time"), lineNumber, source), "Close Time", lineNumber, source),
+                parseOptionalTime(optionalValue(values, headerIndexes, PRE_MARKET_OPEN_HEADERS), "Pre Market Open Time", lineNumber, source),
+                parseOptionalTime(optionalValue(values, headerIndexes, PRE_MARKET_CLOSE_HEADERS), "Pre Market Close Time", lineNumber, source),
+                parseOptionalTime(optionalValue(values, headerIndexes, POST_MARKET_OPEN_HEADERS), "Post Market Open Time", lineNumber, source),
+                parseOptionalTime(optionalValue(values, headerIndexes, POST_MARKET_CLOSE_HEADERS), "Post Market Close Time", lineNumber, source),
+                parseOptionalBoolean(optionalValue(values, headerIndexes, IS_ACTIVE_HEADERS))
         );
     }
 
     private String requiredValue(
             List<String> values,
             Map<String, Integer> headerIndexes,
-            String header,
+            List<String> headers,
             int lineNumber,
             String source
     ) {
-        String value = optionalValue(values, headerIndexes, header);
+        String value = optionalValue(values, headerIndexes, headers);
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(
-                    "Missing value for column '" + header + "' on row " + lineNumber + " in " + source
+                    "Missing value for column " + headers + " on row " + lineNumber + " in " + source
             );
         }
         return value;
     }
 
-    private String optionalValue(List<String> values, Map<String, Integer> headerIndexes, String header) {
-        Integer index = headerIndexes.get(header);
+    private String optionalValue(List<String> values, Map<String, Integer> headerIndexes, List<String> headers) {
+        String resolvedHeader = resolveHeader(headerIndexes, headers);
+        if (resolvedHeader == null) {
+            return null;
+        }
+        Integer index = headerIndexes.get(resolvedHeader);
         if (index == null || index >= values.size()) {
             return null;
         }
         return values.get(index).trim();
+    }
+
+    private String resolveHeader(Map<String, Integer> headerIndexes, List<String> aliases) {
+        for (String alias : aliases) {
+            if (headerIndexes.containsKey(alias)) {
+                return alias;
+            }
+        }
+        return null;
     }
 
     private LocalTime parseTime(String rawValue, String header, int lineNumber, String source) {
@@ -289,6 +305,13 @@ public class CsvImportService {
                     "Invalid boolean value '" + rawValue + "' on row " + lineNumber + " in " + source
             );
         };
+    }
+
+    private boolean parseOptionalBoolean(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return true;
+        }
+        return parseBoolean(rawValue, 0, "CSV");
     }
 
     private List<String> parseCsvLine(String line, int lineNumber, String source) {

@@ -150,10 +150,39 @@ class StockExchangeCsvImportServiceTest {
                 .hasMessageContaining("Duplicate MIC code 'XNYS'");
     }
 
+    @Test
+    void importFromResourceSupportsNewSeedFormatAndDefaultsOptionalFields() {
+        CsvImportService service = createService();
+        when(stockExchangeRepository.findAllByExchangeMICCodeIn(any())).thenReturn(List.of());
+        when(stockExchangeRepository.saveAll(any())).thenAnswer(invocation -> List.of());
+
+        StockExchangeImportResponse response = service.importFromResource(
+                csvResource("""
+                        Exchange Name,Exchange Acronym,Exchange Mic Code,Country,Currency,Time Zone,Open Time,Close Time
+                        Nasdaq,NASDAQ,XNAS,USA,USD,America/New_York,09:30,16:00
+                        London Metal Exchange,LME,XLME,United Kingdom,British Pound Sterling,Europe/London,08:00,16:00
+                        """),
+                "test-exchanges.csv"
+        );
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<StockExchange>> captor = ArgumentCaptor.forClass(List.class);
+        verify(stockExchangeRepository).saveAll(captor.capture());
+        List<StockExchange> savedEntities = captor.getValue();
+
+        assertThat(response.processedRows()).isEqualTo(2);
+        assertThat(response.createdCount()).isEqualTo(2);
+        assertThat(savedEntities.getFirst().getExchangeMICCode()).isEqualTo("XNAS");
+        assertThat(savedEntities.getFirst().getPolity()).isEqualTo("USA");
+        assertThat(savedEntities.getFirst().getPreMarketOpenTime()).isNull();
+        assertThat(savedEntities.getFirst().getPostMarketCloseTime()).isNull();
+        assertThat(savedEntities.getFirst().getIsActive()).isTrue();
+    }
+
     private CsvImportService createService() {
         return new CsvImportService(
                 stockExchangeRepository,
-                new StockExchangeSeedProperties(true, "classpath:seed/stock-exchanges.csv"),
+                new StockExchangeSeedProperties(true, "classpath:seed/exchanges.csv"),
                 new DefaultResourceLoader()
         );
     }
