@@ -15,6 +15,7 @@ import com.banka1.credit_service.dto.response.AccountDetailsResponseDto;
 import com.banka1.credit_service.dto.response.ConversionResponseDto;
 import com.banka1.credit_service.dto.response.LoanInfoResponseDto;
 import com.banka1.credit_service.dto.response.LoanRequestResponseDto;
+import com.banka1.credit_service.dto.response.LoanResponseDto;
 import com.banka1.credit_service.rabbitMQ.EmailDto;
 import com.banka1.credit_service.rabbitMQ.EmailType;
 import com.banka1.credit_service.rabbitMQ.RabbitClient;
@@ -32,6 +33,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -154,6 +156,30 @@ class LoanServiceImplementationTest {
     }
 
     @Test
+    void requestRejectsWhenAccountDoesNotExist() {
+        LoanRequestDto dto = validRequestDto();
+        when(accountService.getDetails(dto.getAccountNumber())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.request(jwt(77L, "CLIENT_BASIC"), dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ne postoji racun");
+
+        verify(loanRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void requestRejectsInvalidRepaymentPeriodForNonHousingLoan() {
+        LoanRequestDto dto = validRequestDto();
+        dto.setRepaymentPeriod(13);
+
+        assertThatThrownBy(() -> service.request(jwt(77L, "CLIENT_BASIC"), dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nevalidan repaymentPeriod");
+
+        verify(loanRequestRepository, never()).save(any());
+    }
+
+    @Test
     void confirmationApproveCreatesLoanInstallmentAndApprovalEmail() {
         LoanRequest request = persistedRequest(Status.PENDING);
         when(loanRequestRepository.updateStatus(15L, Status.APPROVED)).thenReturn(1);
@@ -218,6 +244,36 @@ class LoanServiceImplementationTest {
     }
 
     @Test
+    void confirmationRejectsUnsupportedStatus() {
+        assertThatThrownBy(() -> service.confirmation(jwt(999L, "BASIC"), 15L, Status.PENDING))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("approved ili declined");
+
+        verify(loanRequestRepository, never()).updateStatus(any(), any());
+    }
+
+    @Test
+    void confirmationThrowsWhenRequestDoesNotExist() {
+        when(loanRequestRepository.updateStatus(999L, Status.APPROVED)).thenReturn(0);
+        when(loanRequestRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.confirmation(jwt(999L, "BASIC"), 999L, Status.APPROVED))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Ne postoji loanRequest");
+    }
+
+    @Test
+    void confirmationThrowsWhenRequestAlreadyProcessed() {
+        LoanRequest request = persistedRequest(Status.APPROVED);
+        when(loanRequestRepository.updateStatus(15L, Status.APPROVED)).thenReturn(0);
+        when(loanRequestRepository.findById(15L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.confirmation(jwt(999L, "BASIC"), 15L, Status.APPROVED))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Umesto PENDING status je: APPROVED");
+    }
+
+    @Test
     void infoReturnsLoanDetailsToOwner() {
         Loan loan = activeLoan(77L);
         Installment installment = new Installment(loan, new BigDecimal("12222.33"), new BigDecimal("0.0060"),
@@ -242,6 +298,27 @@ class LoanServiceImplementationTest {
         assertThatThrownBy(() -> service.info(jwt(88L, "CLIENT_BASIC"), loan.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Nemas dozvolu");
+    }
+
+    @Test
+    void infoAllowsEmployeeRoleForNonOwner() {
+        Loan loan = activeLoan(77L);
+        loan.setInstallments(List.of());
+        when(loanRepository.findById(loan.getId())).thenReturn(Optional.of(loan));
+
+        LoanInfoResponseDto info = service.info(jwt(88L, "BASIC"), loan.getId());
+
+        assertThat(info.getLoan().getLoanNumber()).isEqualTo(loan.getId());
+        assertThat(info.getInstallments()).isEmpty();
+    }
+
+    @Test
+    void infoThrowsWhenLoanMissing() {
+        when(loanRepository.findById(321L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.info(jwt(77L, "CLIENT_BASIC"), 321L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ne postoji loan");
     }
 
     @Test
@@ -294,6 +371,99 @@ class LoanServiceImplementationTest {
         verify(rabbitClient).sendEmailNotification(emailCaptor.capture());
         assertThat(emailCaptor.getValue().getEmailType()).isEqualTo(EmailType.CREDIT_INSTALLMENT_FAILED);
         assertThat(emailCaptor.getValue().getHours()).isEqualTo(72);
+    }
+
+    @Test
+    void cronForRatesMarksOverdueOnSecondFailedRetry() {
+        Loan loan = activeLoan(77L);
+        Installment installment = new Installment(loan, new BigDecimal("10500.00"), new BigDecimal("0.0050"),
+                CurrencyCode.RSD, LocalDate.now(), null, PaymentStatus.UNPAID);
+        installment.setRetry(1);
+
+        when(installmentRepository.findInstallmentByExpectedDueDateLessThanEqualAndPaymentStatusNot(eq(LocalDate.now()), eq(PaymentStatus.PAID)))
+                .thenReturn(List.of(installment));
+        doThrow(new HttpClientErrorException(HttpStatus.BAD_REQUEST))
+                .when(accountService).transactionFromBank(any(BankPaymentDto.class));
+
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.cronForRates();
+
+        assertThat(installment.getPaymentStatus()).isEqualTo(PaymentStatus.OVERDUE);
+        assertThat(loan.getStatus()).isEqualTo(Status.OVERDUE);
+        assertThat(installment.getExpectedDueDate()).isEqualTo(LocalDate.now().plusDays(1));
+        assertThat(loan.getNextInstallmentDate()).isEqualTo(LocalDate.now().plusDays(1));
+
+        TransactionSynchronizationManager.getSynchronizations().getFirst().afterCommit();
+
+        ArgumentCaptor<EmailDto> emailCaptor = ArgumentCaptor.forClass(EmailDto.class);
+        verify(rabbitClient).sendEmailNotification(emailCaptor.capture());
+        assertThat(emailCaptor.getValue().getEmailType()).isEqualTo(EmailType.CREDIT_INSTALLMENT_FAILED);
+        assertThat(emailCaptor.getValue().getHours()).isEqualTo(24);
+    }
+
+    @Test
+    void cronForRatesMarksLoanPaidOffWhenDebtCleared() {
+        Loan loan = activeLoan(77L);
+        loan.setRepaymentPeriod(3);
+        loan.setInstallmentCount(2);
+        loan.setRemainingDebt(new BigDecimal("1000.00"));
+        Installment installment = new Installment(loan, new BigDecimal("1100.00"), BigDecimal.ZERO,
+                CurrencyCode.RSD, LocalDate.now(), null, PaymentStatus.UNPAID);
+
+        when(installmentRepository.findInstallmentByExpectedDueDateLessThanEqualAndPaymentStatusNot(eq(LocalDate.now()), eq(PaymentStatus.PAID)))
+                .thenReturn(List.of(installment));
+        when(accountService.transactionFromBank(any(BankPaymentDto.class))).thenReturn(null);
+
+        service.cronForRates();
+
+        assertThat(installment.getPaymentStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(loan.getStatus()).isEqualTo(Status.PAID_OFF);
+        verify(installmentRepository, never()).save(any(Installment.class));
+    }
+
+    @Test
+    void findReturnsMappedPageForClient() {
+        Loan lower = activeLoan(77L);
+        lower.setId(101L);
+        lower.setAmount(new BigDecimal("5000.00"));
+        Loan higher = activeLoan(77L);
+        higher.setId(102L);
+        higher.setAmount(new BigDecimal("9000.00"));
+
+        when(loanRepository.findByClientIdOrderByAmountDesc(77L, PageRequest.of(0, 2)))
+                .thenReturn(new PageImpl<>(List.of(higher, lower), PageRequest.of(0, 2), 2));
+
+        PageImpl<LoanResponseDto> page = (PageImpl<LoanResponseDto>) service.find(jwt(77L, "CLIENT_BASIC"), 0, 2);
+
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getContent().getFirst().getLoanNumber()).isEqualTo(102L);
+        assertThat(page.getContent().getFirst().getAmount()).isEqualByComparingTo("9000.00");
+    }
+
+    @Test
+    void findAllLoanRequestDelegatesFiltersToRepository() {
+        LoanRequest request = persistedRequest(Status.PENDING);
+        when(loanRequestRepository.findAllWithFilters(LoanType.AUTO, "ACC-001", PageRequest.of(0, 5)))
+                .thenReturn(new PageImpl<>(List.of(request), PageRequest.of(0, 5), 1));
+
+        PageImpl<LoanRequest> page = (PageImpl<LoanRequest>) service.findAllLoanRequest(jwt(999L, "BASIC"), LoanType.AUTO, "ACC-001", 0, 5);
+
+        assertThat(page.getTotalElements()).isEqualTo(1);
+        assertThat(page.getContent().getFirst().getId()).isEqualTo(request.getId());
+    }
+
+    @Test
+    void findAllLoansDelegatesFiltersAndMapsResponse() {
+        Loan loan = activeLoan(77L);
+        when(loanRepository.findAllWithFilters(LoanType.AUTO, "ACC-001", Status.ACTIVE, PageRequest.of(0, 10)))
+                .thenReturn(new PageImpl<>(List.of(loan), PageRequest.of(0, 10), 1));
+
+        PageImpl<LoanResponseDto> page = (PageImpl<LoanResponseDto>) service.findAllLoans(jwt(999L, "BASIC"), LoanType.AUTO, "ACC-001", Status.ACTIVE, 0, 10);
+
+        assertThat(page.getTotalElements()).isEqualTo(1);
+        assertThat(page.getContent().getFirst().getLoanNumber()).isEqualTo(loan.getId());
+        assertThat(page.getContent().getFirst().getStatus()).isEqualTo(Status.ACTIVE);
     }
 
     private LoanRequestDto validRequestDto() {

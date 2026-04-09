@@ -139,6 +139,21 @@ class LoanControllerIntegrationTest {
     }
 
     @Test
+    void requestEndpointRejectsEmployeeRole() throws Exception {
+        LoanRequestDto request = validRequest();
+
+        mockMvc.perform(post("/api/loans/requests")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 501L).claim("roles", "BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC")))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.errorCode").value("ERR_INTERNAL_SERVER"));
+    }
+
+    @Test
     void approveEndpointCreatesLoanAndFirstInstallment() throws Exception {
         LoanRequest loanRequest = loanRequestRepository.save(pendingRequest());
         when(accountService.transactionFromBank(any())).thenReturn(null);
@@ -165,6 +180,37 @@ class LoanControllerIntegrationTest {
     }
 
     @Test
+    void approveEndpointRejectsClientRole() throws Exception {
+        LoanRequest loanRequest = loanRequestRepository.save(pendingRequest());
+
+        mockMvc.perform(put("/api/loans/requests/{id}/approve", loanRequest.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 77L).claim("roles", "CLIENT_BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CLIENT_BASIC")))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.errorCode").value("ERR_INTERNAL_SERVER"));
+    }
+
+    @Test
+    void declineEndpointUpdatesRequestStatusAndSkipsLoanCreation() throws Exception {
+        LoanRequest loanRequest = loanRequestRepository.save(pendingRequest());
+
+        mockMvc.perform(put("/api/loans/requests/{id}/decline", loanRequest.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 501L).claim("roles", "BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC")))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").value("ODBIJEN ZAHTEV"));
+
+        LoanRequest updatedRequest = loanRequestRepository.findById(loanRequest.getId()).orElseThrow();
+        assertThat(updatedRequest.getStatus()).isEqualTo(Status.DECLINED);
+        assertThat(loanRepository.findAll()).isEmpty();
+        assertThat(installmentRepository.findAll()).isEmpty();
+    }
+
+    @Test
     void infoEndpointReturnsLoanDetailsToOwner() throws Exception {
         Loan loan = loanRepository.save(activeLoan());
         installmentRepository.save(new Installment(
@@ -186,6 +232,108 @@ class LoanControllerIntegrationTest {
                 .andExpect(jsonPath("$.loan.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.installments.length()").value(1))
                 .andExpect(jsonPath("$.installments[0].paymentStatus").value("UNPAID"));
+    }
+
+    @Test
+    void infoEndpointReturnsBadRequestForDifferentClient() throws Exception {
+        Loan loan = loanRepository.save(activeLoan());
+
+        mockMvc.perform(get("/api/loans/{loanNumber}", loan.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 88L).claim("roles", "CLIENT_BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CLIENT_BASIC"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("ERR_VALIDATION"));
+    }
+
+    @Test
+    void clientEndpointReturnsOnlyAuthenticatedClientLoans() throws Exception {
+        Loan ownLoan = activeLoan();
+        ownLoan.setAmount(new BigDecimal("700000.00"));
+        Loan otherLoan = activeLoan();
+        otherLoan.setAccountNumber("ACC-999");
+        otherLoan.setClientId(999L);
+        otherLoan.setAmount(new BigDecimal("900000.00"));
+        loanRepository.save(ownLoan);
+        loanRepository.save(otherLoan);
+
+        mockMvc.perform(get("/api/loans/client")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 77L).claim("roles", "CLIENT_BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CLIENT_BASIC"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].amount").value(700000.00));
+    }
+
+    @Test
+    void findLoanRequestsEndpointSupportsFiltersForEmployees() throws Exception {
+        LoanRequest matching = pendingRequest();
+        LoanRequest other = pendingRequest();
+        other.setAccountNumber("ACC-XYZ");
+        other.setLoanType(LoanType.STUDENTSKI);
+        loanRequestRepository.save(matching);
+        loanRequestRepository.save(other);
+
+        mockMvc.perform(get("/api/loans/requests")
+                        .param("vrstaKredita", "AUTO")
+                        .param("brojRacuna", "ACC-001")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 501L).claim("roles", "BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].accountNumber").value("ACC-001"))
+                .andExpect(jsonPath("$.content[0].loanType").value("AUTO"));
+    }
+
+    @Test
+    void findLoanRequestsEndpointRejectsInvalidLoanTypeFilter() throws Exception {
+        mockMvc.perform(get("/api/loans/requests")
+                        .param("vrstaKredita", "NOT_A_TYPE")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 501L).claim("roles", "BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("ERR_VALIDATION"))
+                .andExpect(jsonPath("$.errorDesc").value("Los loanType"));
+    }
+
+    @Test
+    void findAllLoansEndpointSupportsFiltersForEmployees() throws Exception {
+        Loan matching = activeLoan();
+        Loan other = activeLoan();
+        other.setLoanType(LoanType.STUDENTSKI);
+        other.setAccountNumber("ACC-XYZ");
+        other.setStatus(Status.OVERDUE);
+        loanRepository.save(matching);
+        loanRepository.save(other);
+
+        mockMvc.perform(get("/api/loans/all")
+                        .param("vrstaKredita", "AUTO")
+                        .param("brojRacuna", "ACC-001")
+                        .param("loanStatus", "ACTIVE")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 501L).claim("roles", "BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].loanType").value("AUTO"))
+                .andExpect(jsonPath("$.content[0].status").value("ACTIVE"));
+    }
+
+    @Test
+    void findAllLoansEndpointRejectsInvalidStatusFilter() throws Exception {
+        mockMvc.perform(get("/api/loans/all")
+                        .param("loanStatus", "NOT_A_STATUS")
+                        .with(SecurityMockMvcRequestPostProcessors.jwt()
+                                .jwt(jwt -> jwt.claim("id", 501L).claim("roles", "BASIC"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_BASIC"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("ERR_VALIDATION"))
+                .andExpect(jsonPath("$.errorDesc").value("Los loanStatus"));
     }
 
     private LoanRequestDto validRequest() {
