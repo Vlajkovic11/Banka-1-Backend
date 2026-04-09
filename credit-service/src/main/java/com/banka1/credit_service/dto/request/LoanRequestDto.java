@@ -32,6 +32,7 @@ public class LoanRequestDto {
     @NotBlank(message = "purpose ne sme biti prazan")
     private String purpose;
     @NotNull(message = "monthlySalary ne sme biti null")
+    @Positive(message = "monthlySalary mora biti > 0")
     private BigDecimal monthlySalary;
     @NotNull(message = "employmentStatus ne sme biti null")
     private EmploymentStatus employmentStatus;
@@ -45,7 +46,4 @@ public class LoanRequestDto {
     private String contactPhone;
     @NotBlank(message = "accountNumber ne sme biti prazan")
     private String accountNumber;
-    @NotNull(message = "clientId ne sme biti null")
-    private Long clientId;
-
 }

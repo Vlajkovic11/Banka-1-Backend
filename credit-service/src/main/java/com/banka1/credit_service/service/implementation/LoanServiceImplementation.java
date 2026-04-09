@@ -53,7 +53,7 @@ public class LoanServiceImplementation implements LoanService {
 
     private final double startRange=-1.5;
     private final double endRange=1.5;
-    private Set<String> employeeRoles=new HashSet<>(Set.of("BASIC","AGENT","SUPERVISOR","ADMIN"));
+    private final Set<String> employeeRoles=new HashSet<>(Set.of("BASIC","AGENT","SUPERVISOR","ADMIN"));
     private BigDecimal referenceRate=BigDecimal.valueOf(ThreadLocalRandom.current().nextDouble(startRange, endRange)).setScale(4, RoundingMode.HALF_UP);
 
 
@@ -125,7 +125,7 @@ public class LoanServiceImplementation implements LoanService {
         {
             throw new IllegalArgumentException("Valuta racuna ne odgovara valuti kredita");
         }
-        LoanRequest loanRequest=loanRequestRepository.save(new LoanRequest(loanRequestDto.getLoanType(),loanRequestDto.getInterestType(),loanRequestDto.getAmount(),loanRequestDto.getCurrency(),loanRequestDto.getPurpose(),loanRequestDto.getMonthlySalary(),loanRequestDto.getEmploymentStatus(),loanRequestDto.getCurrentEmploymentPeriod(),loanRequestDto.getRepaymentPeriod(),loanRequestDto.getContactPhone(),loanRequestDto.getAccountNumber(),loanRequestDto.getClientId(), Status.PENDING,accountDetailsResponseDto.getEmail(),accountDetailsResponseDto.getUsername()));
+        LoanRequest loanRequest=loanRequestRepository.save(new LoanRequest(loanRequestDto.getLoanType(),loanRequestDto.getInterestType(),loanRequestDto.getAmount(),loanRequestDto.getCurrency(),loanRequestDto.getPurpose(),loanRequestDto.getMonthlySalary(),loanRequestDto.getEmploymentStatus(),loanRequestDto.getCurrentEmploymentPeriod(),loanRequestDto.getRepaymentPeriod(),loanRequestDto.getContactPhone(),loanRequestDto.getAccountNumber(),accountDetailsResponseDto.getOwnerId(), Status.PENDING,accountDetailsResponseDto.getEmail(),accountDetailsResponseDto.getUsername()));
         return new LoanRequestResponseDto(loanRequest.getId(),loanRequest.getCreatedAt());
     }
 
@@ -224,6 +224,10 @@ public class LoanServiceImplementation implements LoanService {
                 BigDecimal val = rate.multiply(stepen).divide(stepen.subtract(BigDecimal.ONE), 10, RoundingMode.HALF_UP);
                 BigDecimal monthlyRate = x.getLoan().getRemainingDebt().multiply(val);
                 installmentRepository.save(new Installment(x.getLoan(),monthlyRate,rate,x.getLoan().getCurrency(), x.getLoan().getNextInstallmentDate(), null, PaymentStatus.UNPAID));
+            }
+            else
+            {
+                x.getLoan().setStatus(Status.PAID_OFF);
             }
         }
 

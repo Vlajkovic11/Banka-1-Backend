@@ -68,13 +68,13 @@ public class LoanController {
     @GetMapping("/requests")
     public ResponseEntity<Page<LoanRequest>> findAllLoanRequest(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) String vrstaKredita, @RequestParam(required = false) String brojRacuna,@RequestParam(defaultValue = "0") @Min(value = 0) int page, @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
     {
-        LoanType loanType;
-        try {
-            loanType=LoanType.valueOf(vrstaKredita);
-        }
-        catch (Exception e)
-        {
-            throw new IllegalArgumentException("Los loanType");
+        LoanType loanType=null;
+        if(vrstaKredita!=null) {
+            try {
+                loanType = LoanType.valueOf(vrstaKredita);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Los loanType");
+            }
         }
 
         return new ResponseEntity<>(loanService.findAllLoanRequest(jwt,loanType,brojRacuna,page,size),HttpStatus.OK);
@@ -83,21 +83,21 @@ public class LoanController {
     @GetMapping("/all")
     public ResponseEntity<Page<LoanResponseDto>> findAllLoans(@AuthenticationPrincipal Jwt jwt,@RequestParam(required = false) String vrstaKredita, @RequestParam(required = false) String brojRacuna,@RequestParam(required = false) String loanStatus,@RequestParam(defaultValue = "0") @Min(value = 0) int page, @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
     {
-        LoanType loanType;
-        try {
-            loanType=LoanType.valueOf(vrstaKredita);
+        LoanType loanType=null;
+        if(vrstaKredita!=null) {
+            try {
+                loanType = LoanType.valueOf(vrstaKredita);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Los loanType");
+            }
         }
-        catch (Exception e)
-        {
-            throw new IllegalArgumentException("Los loanType");
-        }
-        Status status;
-        try {
-            status=Status.valueOf(loanStatus);
-        }
-        catch (Exception e)
-        {
-            throw new IllegalArgumentException("Los loanStatus");
+        Status status=null;
+        if(loanStatus!=null) {
+            try {
+                status = Status.valueOf(loanStatus);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Los loanStatus");
+            }
         }
         return new ResponseEntity<>(loanService.findAllLoans(jwt,loanType,brojRacuna,status,page,size),HttpStatus.OK);
     }
