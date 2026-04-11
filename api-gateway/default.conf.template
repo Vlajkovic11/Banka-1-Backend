@@ -31,6 +31,10 @@ upstream transaction_service {
     server transaction-service:${TRANSACTION_SERVER_PORT};
 }
 
+upstream credit_service {
+    server credit-service:${CREDIT_SERVER_PORT};
+}
+
 upstream stock_service {
     server stock-service:${STOCK_SERVICE_PORT};
 }
@@ -147,6 +151,20 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Prefix /transactions;
+    }
+
+    location = /credit {
+        return 301 /credit/;
+    }
+
+    # Credit Service
+    location /credit/ {
+        proxy_pass http://credit_service/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /credit;
     }
 
     location = /stock {
