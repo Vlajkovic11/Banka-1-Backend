@@ -1,8 +1,11 @@
 package com.banka1.stock_service.service;
 
+import com.banka1.stock_service.domain.Listing;
+import com.banka1.stock_service.domain.ListingType;
 import com.banka1.stock_service.domain.OptionType;
 import com.banka1.stock_service.domain.Stock;
 import com.banka1.stock_service.domain.StockOption;
+import com.banka1.stock_service.repository.ListingRepository;
 import com.banka1.stock_service.repository.StockOptionRepository;
 import com.banka1.stock_service.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -81,6 +85,7 @@ public class StockOptionSeedService {
 
     private final StockRepository stockRepository;
     private final StockOptionRepository stockOptionRepository;
+    private final ListingRepository listingRepository;
 
     /**
      * Seeds the built-in starter options into the database.
@@ -112,10 +117,33 @@ public class StockOptionSeedService {
             option.setOpenInterest(row.openInterest());
             option.setSettlementDate(row.settlementDate());
             stockOptionRepository.save(option);
+            seedOptionListing(option, stock);
             createdCount++;
         }
 
         return createdCount;
+    }
+
+    private void seedOptionListing(StockOption option, Stock stock) {
+        listingRepository.findByListingTypeAndSecurityId(ListingType.STOCK, stock.getId())
+                .ifPresent(underlyingListing -> {
+                    if (listingRepository.findByListingTypeAndSecurityId(ListingType.OPTION, option.getId()).isPresent()) {
+                        return;
+                    }
+                    Listing optionListing = new Listing();
+                    optionListing.setListingType(ListingType.OPTION);
+                    optionListing.setSecurityId(option.getId());
+                    optionListing.setStockExchange(underlyingListing.getStockExchange());
+                    optionListing.setTicker(option.getTicker());
+                    optionListing.setName(option.getTicker());
+                    optionListing.setPrice(option.getStrikePrice());
+                    optionListing.setAsk(option.getStrikePrice());
+                    optionListing.setBid(option.getStrikePrice());
+                    optionListing.setChange(BigDecimal.ZERO);
+                    optionListing.setVolume((long) option.getOpenInterest());
+                    optionListing.setLastRefresh(LocalDateTime.now());
+                    listingRepository.save(optionListing);
+                });
     }
 
     private record SeededOptionRow(
