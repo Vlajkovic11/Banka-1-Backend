@@ -179,7 +179,7 @@ class StockMarketDataRefreshServiceImplTest {
                 listingRepository,
                 listingDailyPriceInfoRepository,
                 alphaVantageClient,
-                new StockMarketDataProperties("https://www.alphavantage.co", "demo-key", 2),
+                new StockMarketDataProperties("https://www.alphavantage.co", "demo-key", null, 2),
                 clock
         );
     }
