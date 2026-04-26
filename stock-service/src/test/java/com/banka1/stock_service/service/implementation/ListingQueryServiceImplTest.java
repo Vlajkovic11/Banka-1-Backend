@@ -23,7 +23,7 @@ import com.banka1.stock_service.repository.StockExchangeRepository;
 import com.banka1.stock_service.repository.StockRepository;
 import com.banka1.stock_service.repository.StockOptionRepository;
 import com.banka1.stock_service.service.ListingQueryService;
-import com.banka1.stock_service.service.StockTickerSeedService;
+import com.banka1.stock_service.runner.StockTickerSeedService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

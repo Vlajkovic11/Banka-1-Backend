@@ -10,6 +10,7 @@ import com.banka1.stock_service.dto.ListingSummaryResponse;
 import com.banka1.stock_service.repository.ListingRepository;
 import com.banka1.stock_service.service.ListingMarketDataRefreshService;
 import com.banka1.stock_service.service.ListingQueryService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
@@ -46,6 +47,7 @@ public class ListingController {
      * @param period requested history window
      * @return detailed listing response
      */
+    @Operation(summary = "Get listing details")
     @GetMapping("/api/listings/{id}")
     @PreAuthorize("hasAnyRole('CLIENT_BASIC', 'BASIC', 'AGENT', 'SUPERVISOR', 'ADMIN', 'SERVICE')")
     public ResponseEntity<ListingDetailsResponse> getListingDetails(
@@ -73,6 +75,7 @@ public class ListingController {
      * @param sortDirection sort direction
      * @return paginated stock listings
      */
+    @Operation(summary = "Get stock listings")
     @GetMapping("/api/listings/stocks")
     @PreAuthorize("hasAnyRole('CLIENT_BASIC', 'BASIC', 'AGENT', 'SUPERVISOR', 'ADMIN', 'SERVICE')")
     public ResponseEntity<Page<ListingSummaryResponse>> getStockListings(
@@ -102,6 +105,7 @@ public class ListingController {
      * @param sortDirection sort direction
      * @return paginated futures listings
      */
+    @Operation(summary = "Get futures listings")
     @GetMapping("/api/listings/futures")
     @PreAuthorize("hasAnyRole('CLIENT_BASIC', 'BASIC', 'AGENT', 'SUPERVISOR', 'ADMIN', 'SERVICE')")
     public ResponseEntity<Page<ListingSummaryResponse>> getFuturesListings(
@@ -131,6 +135,7 @@ public class ListingController {
      * @param sortDirection sort direction
      * @return paginated FX listings
      */
+    @Operation(summary = "Get forex listings")
     @GetMapping("/api/listings/forex")
     @PreAuthorize("hasAnyRole('BASIC', 'AGENT', 'SUPERVISOR', 'ADMIN', 'SERVICE')")
     public ResponseEntity<Page<ListingSummaryResponse>> getForexListings(
@@ -156,6 +161,7 @@ public class ListingController {
      * @param id listing identifier
      * @return refresh summary
      */
+    @Operation(summary = "Refresh listing market data")
     @PostMapping("/api/listings/{id}/refresh")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPERVISOR')")
     public ResponseEntity<ListingRefreshResponse> refreshListing(@PathVariable Long id) {
