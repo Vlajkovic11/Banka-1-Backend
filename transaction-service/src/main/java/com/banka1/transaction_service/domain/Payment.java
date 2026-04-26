@@ -63,6 +63,9 @@ public class Payment extends BaseEntityWithoutDelete {
     @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal commission;
 
+    @Column(nullable = false)
+    private Long senderClientId;
+
     /** ID of the client who is the recipient of the money */
     @Column(nullable = false)
     private Long recipientClientId;

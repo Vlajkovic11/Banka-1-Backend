@@ -20,6 +20,13 @@ import java.time.LocalDateTime;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment,Long>, JpaSpecificationExecutor<Payment> {
 
+
+    Page<Payment> findByRecipientClientId(Long recipientClientId, Pageable pageable);
+
+    Page<Payment> findBySenderClientId(Long senderClientId, Pageable pageable);
+
+    Page<Payment> findByRecipientClientIdOrSenderClientId(Long recipientClientId, Long senderClientId, Pageable pageable);
+
     /**
      * Updates the status of "stuck" transactions that have remained in the IN_PROGRESS status
      * longer than the specified time threshold.

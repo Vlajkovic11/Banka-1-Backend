@@ -66,4 +66,16 @@ public interface TransactionService {
      */
     Page<TransactionResponseDto> findAllTransactionsForEmployee(String accountNumber, int page, int size);
 
+    Page<TransactionResponseDto> findTransactionsByClient(Long id,int page,int size);
+
+    Page<TransactionResponseDto> findTransactionsBySenderClientId(Long id,int page,int size);
+
+    Page<TransactionResponseDto> findTransactionsByRecipientClientId(Long id,int page,int size);
+
+    Page<TransactionResponseDto> findTransactionsBySenderClientId(Jwt jwt,int page,int size);
+
+    Page<TransactionResponseDto> findTransactionsByRecipientClientId(Jwt jwt,int page,int size);
+
+    Page<TransactionResponseDto> findTransactionsByClient(Jwt jwt,int page,int size);
+
 }

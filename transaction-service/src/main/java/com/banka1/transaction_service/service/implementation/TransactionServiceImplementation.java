@@ -103,6 +103,9 @@ public class TransactionServiceImplementation implements TransactionService {
         }
         if(infoResponseDto == null)
             throw new IllegalStateException("Greska sa account servisom");
+        //todo dodato radi razumne optimizacije testirati da li kojim slucajem ne kvari metodu
+        if(!infoResponseDto.getFromVlasnik().equals(((Number) jwt.getClaim(appPropertiesId)).longValue()))
+            throw new IllegalArgumentException("Ne mozes da saljes pare sa tudjeg racuna");
         ConversionResponseDto conversionResponseDto=exchangeService.calculate(infoResponseDto.getFromCurrencyCode(),infoResponseDto.getToCurrencyCode(),newPaymentDto.getAmount());
         if(conversionResponseDto == null)
             throw new IllegalStateException("Greska sa account servisom");
@@ -262,6 +265,43 @@ public class TransactionServiceImplementation implements TransactionService {
     public Page<TransactionResponseDto> findAllTransactionsForEmployee(String accountNumber, int page, int size) {
         return paymentRepository.findByAccountNumber(accountNumber, PageRequest.of(page, size))
                 .map(TransactionResponseDto::new);
+    }
+    @Transactional
+    @Override
+    public Page<TransactionResponseDto> findTransactionsByClient(Long id, int page, int size) {
+        return paymentRepository.findByRecipientClientIdOrSenderClientId(id,id,PageRequest.of(page,size)).map(TransactionResponseDto::new);
+    }
+    @Transactional
+    @Override
+    public Page<TransactionResponseDto> findTransactionsBySenderClientId(Long id, int page, int size) {
+        return paymentRepository.findBySenderClientId(id,PageRequest.of(page,size)).map(TransactionResponseDto::new);
+    }
+    @Transactional
+    @Override
+    public Page<TransactionResponseDto> findTransactionsByRecipientClientId(Long id, int page, int size) {
+        return paymentRepository.findByRecipientClientId(id,PageRequest.of(page,size)).map(TransactionResponseDto::new);
+    }
+
+    @Transactional
+    @Override
+    public Page<TransactionResponseDto> findTransactionsBySenderClientId(Jwt jwt, int page, int size) {
+        Long id=((Number)jwt.getClaim(appPropertiesId)).longValue();
+        return paymentRepository.findBySenderClientId(id,PageRequest.of(page,size)).map(TransactionResponseDto::new);
+
+    }
+
+    @Transactional
+    @Override
+    public Page<TransactionResponseDto> findTransactionsByRecipientClientId(Jwt jwt, int page, int size) {
+        Long id=((Number)jwt.getClaim(appPropertiesId)).longValue();
+        return paymentRepository.findByRecipientClientId(id,PageRequest.of(page,size)).map(TransactionResponseDto::new);
+    }
+
+    @Transactional
+    @Override
+    public Page<TransactionResponseDto> findTransactionsByClient(Jwt jwt, int page, int size) {
+        Long id=((Number)jwt.getClaim(appPropertiesId)).longValue();
+        return paymentRepository.findByRecipientClientIdOrSenderClientId(id,id,PageRequest.of(page,size)).map(TransactionResponseDto::new);
     }
 
     //todo for now leaving this here, validations should be a separate service, left ifs just in case

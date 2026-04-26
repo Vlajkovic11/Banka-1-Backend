@@ -66,6 +66,61 @@ public class TransactionController {
     }
 
 
+    @PreAuthorize("hasRole('BASIC')")
+    @GetMapping("/transactions/by-client")
+    public ResponseEntity<Page<TransactionResponseDto>> findTransactionsByClient(@AuthenticationPrincipal Jwt jwt, @RequestParam Long id,
+                                                                                 @RequestParam(defaultValue = "0") @Min(value = 0) int page,
+                                                                                 @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
+    {
+        return new ResponseEntity<>(transactionService.findTransactionsByClient(id,page,size),HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('BASIC')")
+    @GetMapping("/transactions/by-sender-client")
+    public ResponseEntity<Page<TransactionResponseDto>> findTransactionsBySenderClient(@AuthenticationPrincipal Jwt jwt, @RequestParam Long id,
+                                                                                       @RequestParam(defaultValue = "0") @Min(value = 0) int page,
+                                                                                       @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size )
+    {
+        return new ResponseEntity<>(transactionService.findTransactionsBySenderClientId(id,page,size),HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('BASIC')")
+    @GetMapping("/transactions/by-recipient-client")
+    public ResponseEntity<Page<TransactionResponseDto>> findTransactionsByRecipientClient(@AuthenticationPrincipal Jwt jwt, @RequestParam Long id,
+                                                                                          @RequestParam(defaultValue = "0") @Min(value = 0) int page,
+                                                                                          @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
+    {
+        return new ResponseEntity<>(transactionService.findTransactionsByRecipientClientId(id,page,size),HttpStatus.OK);
+    }
+
+
+
+    @PreAuthorize("hasRole('CLIENT_BASIC')")
+    @GetMapping("/transactions/by-this-client")
+    public ResponseEntity<Page<TransactionResponseDto>> findTransactionsByThisClient(@AuthenticationPrincipal Jwt jwt,
+                                                                                     @RequestParam(defaultValue = "0") @Min(value = 0) int page,
+                                                                                     @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
+    {
+        return new ResponseEntity<>(transactionService.findTransactionsByClient(jwt,page,size),HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('CLIENT_BASIC')")
+    @GetMapping("/transactions/by-this-sender-client")
+    public ResponseEntity<Page<TransactionResponseDto>> findTransactionsByThisSenderClient(@AuthenticationPrincipal Jwt jwt,
+                                                                                           @RequestParam(defaultValue = "0") @Min(value = 0) int page,
+                                                                                           @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
+    {
+        return new ResponseEntity<>(transactionService.findTransactionsBySenderClientId(jwt,page,size),HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('CLIENT_BASIC')")
+    @GetMapping("/transactions/by-this-recipient-client")
+    public ResponseEntity<Page<TransactionResponseDto>> findTransactionsByThisRecipientClient(@AuthenticationPrincipal Jwt jwt,
+                                                                                              @RequestParam(defaultValue = "0") @Min(value = 0) int page,
+                                                                                              @RequestParam(defaultValue = "10") @Min(value = 1) @Max(value = 100) int size)
+    {
+        return new ResponseEntity<>(transactionService.findTransactionsByRecipientClientId(jwt,page,size),HttpStatus.OK);
+    }
 
 
     /**

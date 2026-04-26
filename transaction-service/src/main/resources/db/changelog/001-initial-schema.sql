@@ -16,6 +16,7 @@ CREATE TABLE payment_table (
                                final_amount NUMERIC(19, 4) NOT NULL,
                                commission NUMERIC(19, 4) NOT NULL,
 
+                               sender_client_id BIGINT NOT NULL,
                                recipient_client_id BIGINT NOT NULL,
                                recipient_name VARCHAR(255) NOT NULL,
 

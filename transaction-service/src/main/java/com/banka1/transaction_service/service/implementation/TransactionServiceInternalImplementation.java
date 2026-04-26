@@ -55,6 +55,7 @@ public class TransactionServiceInternalImplementation implements TransactionServ
         payment.setToAccountNumber(newPaymentDto.getToAccountNumber());
         payment.setStatus(TransactionStatus.IN_PROGRESS);
         payment.setInitialAmount(newPaymentDto.getAmount());
+        payment.setSenderClientId(infoResponseDto.getFromVlasnik());
         payment.setRecipientClientId(infoResponseDto.getToVlasnik());
         payment.setFinalAmount(conversionResponseDto.toAmount());
         payment.setCommission(conversionResponseDto.commission());
