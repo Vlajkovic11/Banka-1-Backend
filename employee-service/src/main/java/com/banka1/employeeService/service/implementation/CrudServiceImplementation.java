@@ -2,6 +2,7 @@ package com.banka1.employeeService.service.implementation;
 
 import com.banka1.employeeService.domain.ConfirmationToken;
 import com.banka1.employeeService.domain.Zaposlen;
+import com.banka1.employeeService.domain.enums.Permission;
 import com.banka1.employeeService.domain.enums.Role;
 import com.banka1.employeeService.dto.rabbitmq.EmailDto;
 import com.banka1.employeeService.dto.rabbitmq.EmailType;
@@ -29,6 +30,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Implementacija {@link CrudService} koja upravlja CRUD operacijama nad entitetom zaposlenog.
@@ -70,6 +74,10 @@ public class CrudServiceImplementation implements CrudService {
      */
     @Value("${banka.security.roles-claim}")
     private String role;
+
+    /** Naziv claim-a u JWT-u koji nosi listu permisija korisnika. */
+    @Value("${banka.security.permissions-claim}")
+    private String permission;
 
     /**
      * Bazni URL za aktivaciju naloga (token se dodaje kao query parametar).
@@ -171,7 +179,9 @@ public class CrudServiceImplementation implements CrudService {
         if (role1.getPower() <= zaposlen.getRole().getPower())
             throw new BusinessException(ErrorCode.NOT_STRONG_ROLE, "Slab si");
 
-        employeeMapper.updateEntityFromDto(zaposlen, dto, role1);
+        List<String> list=jwt.getClaim(permission);
+        Set<Permission> permissions=new HashSet<>(list.stream().map(Permission::valueOf).toList());
+        employeeMapper.updateEntityFromDto(zaposlen, dto, role1,permissions);
         Zaposlen updated = zaposlenRepository.save(zaposlen);
 
         Boolean aktivan = dto.getAktivan();

@@ -1,6 +1,7 @@
 package com.banka1.employeeService.mappers;
 
 import com.banka1.employeeService.domain.Zaposlen;
+import com.banka1.employeeService.domain.enums.Permission;
 import com.banka1.employeeService.domain.enums.Role;
 import com.banka1.employeeService.domain.service.ZaposlenService;
 import com.banka1.employeeService.dto.requests.EmployeeCreateRequestDto;
@@ -11,6 +12,8 @@ import com.banka1.employeeService.exception.BusinessException;
 import com.banka1.employeeService.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
 
 /**
  * Mapper koji konvertuje DTO objekte u JPA entitete i obrnuto za entitet {@link Zaposlen}.
@@ -77,7 +80,7 @@ public class EmployeeMapper {
      * @param role uloga administratora koji vrsi izmenu
      * @throws BusinessException ako DTO zahteva ulogu jacu od uloge administratora
      */
-    public void updateEntityFromDto(Zaposlen zaposlen, EmployeeUpdateRequestDto dto, Role role) {
+    public void updateEntityFromDto(Zaposlen zaposlen, EmployeeUpdateRequestDto dto, Role role, Set<Permission> permissions) {
         if (dto.getIme() != null) zaposlen.setIme(dto.getIme());
         if (dto.getPrezime() != null) zaposlen.setPrezime(dto.getPrezime());
         if (dto.getBrojTelefona() != null) zaposlen.setBrojTelefona(dto.getBrojTelefona());
@@ -90,6 +93,17 @@ public class EmployeeMapper {
                 throw new BusinessException(ErrorCode.NOT_STRONG_ROLE, "Ne mozes da mu das jacu rolu od svoje");
             zaposlen.setRole(dto.getRole());
             zaposlenService.setovanjePermisija(zaposlen);
+        }
+        if(dto.getMargin()!=null)
+        {
+            if(dto.getMargin()) {
+                if (permissions.contains(Permission.MARGIN_TRADE))
+                    zaposlen.getPermissionSet().add(Permission.MARGIN_TRADE);
+            }
+            else
+            {
+                zaposlen.getPermissionSet().remove(Permission.MARGIN_TRADE);
+            }
         }
     }
 

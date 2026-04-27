@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -86,7 +87,7 @@ class EmployeeMapperTest {
         EmployeeUpdateRequestDto dto = new EmployeeUpdateRequestDto();
         dto.setDepartman("IT");
 
-        mapper.updateEntityFromDto(emp, dto, Role.ADMIN);
+        mapper.updateEntityFromDto(emp, dto, Role.ADMIN,new HashSet<>());
 
         assertThat(emp.getDepartman()).isEqualTo("IT");
         assertThat(emp.getIme()).isEqualTo("Ana");   // unchanged
@@ -99,7 +100,7 @@ class EmployeeMapperTest {
         EmployeeUpdateRequestDto dto = new EmployeeUpdateRequestDto();
         dto.setAktivan(false);
 
-        mapper.updateEntityFromDto(emp, dto, Role.ADMIN);
+        mapper.updateEntityFromDto(emp, dto, Role.ADMIN,new HashSet<>());
 
         assertThat(emp.isAktivan()).isFalse();
     }
@@ -110,7 +111,7 @@ class EmployeeMapperTest {
         EmployeeUpdateRequestDto dto = new EmployeeUpdateRequestDto();
         dto.setRole(Role.ADMIN);
 
-        assertThatThrownBy(() -> mapper.updateEntityFromDto(emp, dto, Role.AGENT))
+        assertThatThrownBy(() -> mapper.updateEntityFromDto(emp, dto, Role.AGENT,new HashSet<>()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Ne mozes da mu das jacu rolu od svoje");
     }
@@ -121,7 +122,7 @@ class EmployeeMapperTest {
         EmployeeUpdateRequestDto dto = new EmployeeUpdateRequestDto();
         dto.setRole(Role.BASIC);
 
-        mapper.updateEntityFromDto(emp, dto, Role.ADMIN);
+        mapper.updateEntityFromDto(emp, dto, Role.ADMIN,new HashSet<>());
 
         assertThat(emp.getRole()).isEqualTo(Role.BASIC);
     }
@@ -156,7 +157,7 @@ class EmployeeMapperTest {
         EmployeeUpdateRequestDto dto = new EmployeeUpdateRequestDto();
         dto.setRole(Role.ADMIN); // power=4 > AGENT power=2, should throw
 
-        assertThatThrownBy(() -> mapper.updateEntityFromDto(emp, dto, Role.AGENT))
+        assertThatThrownBy(() -> mapper.updateEntityFromDto(emp, dto, Role.AGENT,new HashSet<>()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("Ne mozes da mu das jacu rolu od svoje");
     }
@@ -168,7 +169,7 @@ class EmployeeMapperTest {
         dto.setRole(Role.AGENT); // power=2 == AGENT power=2, should NOT throw (only > throws)
 
         // Should not throw — same power is allowed
-        mapper.updateEntityFromDto(emp, dto, Role.AGENT);
+        mapper.updateEntityFromDto(emp, dto, Role.AGENT,new HashSet<>());
         assertThat(emp.getRole()).isEqualTo(Role.AGENT);
     }
 
@@ -224,7 +225,7 @@ class EmployeeMapperTest {
         dto.setPozicija("Senior");
         dto.setDepartman("Finance");
 
-        mapper.updateEntityFromDto(emp, dto, Role.ADMIN);
+        mapper.updateEntityFromDto(emp, dto, Role.ADMIN,new HashSet<>());
 
         assertThat(emp.getIme()).isEqualTo("Novak");
         assertThat(emp.getPrezime()).isEqualTo("Novakovic");

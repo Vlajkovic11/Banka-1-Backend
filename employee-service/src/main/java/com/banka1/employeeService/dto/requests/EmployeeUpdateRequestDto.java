@@ -42,4 +42,7 @@ public class EmployeeUpdateRequestDto {
 
     /** Nova uloga zaposlenog; promena uloge azurira i skup permisija. */
     private Role role;
+
+    /** Permisija za margine ce se dodati na osnovu ovoga. */
+    private Boolean margin;
 }
