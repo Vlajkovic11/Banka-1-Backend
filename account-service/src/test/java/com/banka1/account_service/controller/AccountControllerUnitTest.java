@@ -72,7 +72,7 @@ class AccountControllerUnitTest {
     @Test
     void getAccountDetailsByIdReturnsOkAndDelegates() {
         AccountController controller = new AccountController(accountService);
-        InternalAccountDetailsDto expected = new InternalAccountDetailsDto("111000100000000011", 1L, "RSD", new BigDecimal("250.00"), "ACTIVE", "PERSONAL", null, null);
+        InternalAccountDetailsDto expected = new InternalAccountDetailsDto(42L, "111000100000000011", 1L, "RSD", new BigDecimal("250.00"), "ACTIVE", "PERSONAL", null, null);
         when(accountService.getAccountDetails(42L)).thenReturn(expected);
 
         ResponseEntity<InternalAccountDetailsDto> response = controller.getAccountDetailsById(null, 42L);
@@ -85,7 +85,7 @@ class AccountControllerUnitTest {
     @Test
     void getBankAccountDetailsReturnsOkAndDelegates() {
         AccountController controller = new AccountController(accountService);
-        InternalAccountDetailsDto expected = new InternalAccountDetailsDto("111000100000000099", -1L, "RSD", new BigDecimal("1000.00"), "ACTIVE", "PERSONAL", null, null);
+        InternalAccountDetailsDto expected = new InternalAccountDetailsDto(7L, "111000100000000099", -1L, "RSD", new BigDecimal("1000.00"), "ACTIVE", "PERSONAL", null, null);
         when(accountService.getBankAccountDetails(CurrencyCode.RSD)).thenReturn(expected);
 
         ResponseEntity<InternalAccountDetailsDto> response = controller.getBankAccountDetails(null, CurrencyCode.RSD);
@@ -98,7 +98,7 @@ class AccountControllerUnitTest {
     @Test
     void getStateAccountDetailsReturnsOkAndDelegates() {
         AccountController controller = new AccountController(accountService);
-        InternalAccountDetailsDto expected = new InternalAccountDetailsDto("1110002000000000011", -2L, "RSD", BigDecimal.ZERO, "ACTIVE", "PERSONAL", null, null);
+        InternalAccountDetailsDto expected = new InternalAccountDetailsDto(9L, "1110002000000000011", -2L, "RSD", BigDecimal.ZERO, "ACTIVE", "PERSONAL", null, null);
         when(accountService.getStateAccountDetails(CurrencyCode.RSD)).thenReturn(expected);
 
         ResponseEntity<InternalAccountDetailsDto> response = controller.getStateAccountDetails(null, CurrencyCode.RSD);

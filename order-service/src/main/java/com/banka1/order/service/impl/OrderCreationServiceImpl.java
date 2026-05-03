@@ -884,7 +884,7 @@ public class OrderCreationServiceImpl implements OrderCreationService {
                     BigDecimal.ZERO,
                     fromAccount.getOwnerId()
             );
-            accountClient.transaction(payment);
+            executePaymentByOwnership(fromAccount, toAccount, payment);
             return;
         }
 
@@ -900,6 +900,25 @@ public class OrderCreationServiceImpl implements OrderCreationService {
                 applyConversionFee && conversion.getCommission() != null ? conversion.getCommission() : BigDecimal.ZERO,
                 fromAccount.getOwnerId()
         );
+        executePaymentByOwnership(fromAccount, toAccount, payment);
+    }
+
+    /**
+     * Routes a settlement payment to the right account-service endpoint based on whether the two
+     * accounts share an owner. The {@code /internal/accounts/transaction} endpoint rejects same-owner
+     * pairs ("Tranzakcija se ne moze odvijati za racune istog vlasnike") because it is meant for
+     * cross-owner movements (client to bank, bank to state, etc.); for bank-internal fee bookings
+     * (e.g. an actuary buying with bank funds, where both accounts belong to the bank) the
+     * {@code /internal/accounts/transfer} endpoint is the correct one. Without this routing the
+     * confirmOrder call would fail with HTTP 500 for any bank-to-bank fee leg.
+     */
+    private void executePaymentByOwnership(AccountDetailsDto fromAccount, AccountDetailsDto toAccount, PaymentDto payment) {
+        Long fromOwner = fromAccount.getOwnerId();
+        Long toOwner = toAccount.getOwnerId();
+        if (fromOwner != null && fromOwner.equals(toOwner)) {
+            accountClient.transfer(payment);
+            return;
+        }
         accountClient.transaction(payment);
     }
 

@@ -456,6 +456,16 @@ public class OrderExecutionServiceImpl implements OrderExecutionService {
                 BigDecimal.ZERO,
                 orderOwnerId(fromAccount)
         );
+        // Route by ownership: account-service /transaction rejects same-owner pairs and /transfer
+        // rejects different-owner pairs. Settlement legs that move funds between two bank-owned
+        // accounts (e.g. bank's funding account to bank's commission account) must therefore go
+        // through /transfer, while client-to-bank settlements continue to use /transaction.
+        Long fromOwner = fromAccount.getOwnerId();
+        Long toOwner = toAccount.getOwnerId();
+        if (fromOwner != null && fromOwner.equals(toOwner)) {
+            accountClient.transfer(payment);
+            return;
+        }
         accountClient.transaction(payment);
     }
 

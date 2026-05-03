@@ -5,11 +5,19 @@ import com.banka1.account_service.domain.Account;
 import java.math.BigDecimal;
 
 /**
- * DTO za interne pozive izmedju servisa (npr. transfer-service).
+ * DTO za interne pozive izmedju servisa (npr. transfer-service, order-service).
  * Sadrzi osnovne informacije o racunu sa engleskim imenima polja
  * kako bi bili kompatibilni sa ocekivanim formatom koji koriste drugi servisi.
+ *
+ * <p>{@code id} je primarni kljuc racuna u bazi i koristi se kao Long identifikator
+ * u inter-servisnoj komunikaciji (npr. order-service prosledjuje ovu vrednost
+ * pri pozivu {@code /internal/accounts/id/{accountId}/details} ili kao
+ * {@code accountId} u Order entitetu). Razlikovati od {@code accountNumber} koji
+ * je 16-cifreni broj racuna (String), namenjen za matching u transakcijama
+ * kroz {@code PaymentDto}.
  */
 public record InternalAccountDetailsDto(
+        Long id,
         String accountNumber,
         Long ownerId,
         String currency,
@@ -27,6 +35,7 @@ public record InternalAccountDetailsDto(
             accountType = fa.getAccountOwnershipType().name();
         }
         return new InternalAccountDetailsDto(
+                account.getId(),
                 account.getBrojRacuna(),
                 account.getVlasnik(),
                 account.getCurrency() != null ? account.getCurrency().getOznaka().name() : null,
