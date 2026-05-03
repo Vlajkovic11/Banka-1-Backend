@@ -232,6 +232,34 @@ class ListingControllerWebMvcTest {
     }
 
     @Test
+    void refreshListingInternalReturnsOkForServiceRole() throws Exception {
+        when(listingMarketDataRefreshService.refreshListing(15L)).thenReturn(new ListingRefreshResponse(
+                15L,
+                "AAPL",
+                ListingType.STOCK,
+                LocalDate.of(2026, 4, 8),
+                LocalDateTime.of(2026, 4, 8, 10, 15, 30)
+        ));
+
+        mockMvc.perform(post("/api/internal/listings/15/refresh")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SERVICE"))
+                                .jwt(token -> token.claim("id", 0L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.listingId").value(15))
+                .andExpect(jsonPath("$.ticker").value("AAPL"));
+
+        verify(listingMarketDataRefreshService).refreshListing(15L);
+    }
+
+    @Test
+    void refreshListingInternalReturnsForbiddenForClientRole() throws Exception {
+        mockMvc.perform(post("/api/internal/listings/15/refresh")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CLIENT_BASIC"))
+                                .jwt(token -> token.claim("id", 5L))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void getStockListingsReturnsOkForClientRole() throws Exception {
         when(listingQueryService.getStockListings(
                 any(ListingFilterRequest.class),

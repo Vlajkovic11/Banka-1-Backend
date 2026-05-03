@@ -185,6 +185,21 @@ public class ListingController {
     }
 
     /**
+     * Service-to-service variant of {@link #refreshListing(Long)} used by order-service to
+     * pull fresh quote data into the listing right when an order is approved. It exists so
+     * order confirms made on a weekend (when {@code ListingMarketDataScheduler} skips
+     * closed exchanges) still feed the async executor non-zero {@code ask}/{@code volume},
+     * unblocking BUY → portfolio.
+     */
+    @Operation(summary = "Refresh listing market data (internal)")
+    @PostMapping("/api/internal/listings/{id}/refresh")
+    @PreAuthorize("hasRole('SERVICE')")
+    public ResponseEntity<ListingRefreshResponse> refreshListingInternal(@PathVariable Long id) {
+        ListingRefreshResponse response = listingMarketDataRefreshService.refreshListing(id);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Parses the sort-direction query parameter used by catalog endpoints.
      *
      * @param sortDirection raw query-parameter value

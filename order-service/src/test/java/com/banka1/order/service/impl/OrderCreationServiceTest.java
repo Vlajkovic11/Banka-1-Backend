@@ -231,6 +231,9 @@ class OrderCreationServiceTest {
         assertThat(response.getApprovedBy()).isEqualTo(OrderCreationServiceImpl.NO_APPROVAL_REQUIRED);
         verify(accountClient, never()).transfer(any(AccountTransactionRequest.class));
         verify(orderExecutionService).executeOrderAsync(100L);
+        // Approving the order must seed fresh quote data so the async executor can fill on
+        // weekends, when ListingMarketDataScheduler skips refresh for closed exchanges.
+        verify(stockClient).refreshListing(42L);
     }
 
     @Test
@@ -251,6 +254,9 @@ class OrderCreationServiceTest {
         verify(accountClient).getAccountDetails(999L);
         verify(accountClient, never()).transfer(any(AccountTransactionRequest.class));
         verify(orderExecutionService, never()).executeOrderAsync(any());
+        // Refresh is tied to the APPROVED transition; orders waiting on supervisor approval
+        // must not consume a refresh call yet (the supervisor's approveOrder call will).
+        verify(stockClient, never()).refreshListing(any());
     }
 
     @Test
@@ -286,6 +292,7 @@ class OrderCreationServiceTest {
         assertThat(response.getApprovedBy()).isEqualTo(88L);
         verify(accountClient, never()).transfer(any(AccountTransactionRequest.class));
         verify(orderExecutionService).executeOrderAsync(100L);
+        verify(stockClient).refreshListing(42L);
     }
 
     @Test

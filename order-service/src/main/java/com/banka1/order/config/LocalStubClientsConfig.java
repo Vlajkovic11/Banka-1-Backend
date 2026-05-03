@@ -183,6 +183,11 @@ class LocalStubClientsConfig {
                 return dto;
             }
 
+            @Override
+            public void refreshListing(Long id) {
+                // Local profile stub: no live data source, so refresh is a no-op.
+            }
+
             private StockListingDto listing(Long id, String ticker, String name, String price) {
                 StockListingDto dto = new StockListingDto();
                 dto.setId(id);

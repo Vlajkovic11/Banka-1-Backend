@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 /**
  * RestClient-based implementation of {@link StockClient}.
@@ -65,5 +66,21 @@ public class StockClientImpl implements StockClient {
                 .uri("/api/stock-exchanges/{id}/status", id)
                 .retrieve()
                 .body(ExchangeStatusDto.class);
+    }
+
+    @Override
+    public void refreshListing(Long id) {
+        try {
+            stockRestClient.post()
+                    .uri("/api/internal/listings/{id}/refresh", id)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            // Tolerate provider rate-limits and stock-service errors: the order should still
+            // progress on whatever quote data is already persisted, and the next scheduled
+            // refresh will recover. Failing the order confirm here would punish the user for
+            // an upstream issue they cannot resolve.
+            log.warn("Listing refresh failed for id={}, falling back to stale data: {}", id, e.getMessage());
+        }
     }
 }

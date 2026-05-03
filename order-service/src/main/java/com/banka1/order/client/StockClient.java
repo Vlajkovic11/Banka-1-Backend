@@ -41,4 +41,15 @@ public interface StockClient {
      * @return exchange status
      */
     ExchangeStatusDto getExchangeStatus(Long id);
+
+    /**
+     * Triggers an on-demand refresh of one listing's market-data snapshot in stock-service.
+     * Used by the order-service approval flow so a confirmed BUY can fill against current
+     * quote data even on weekends when the scheduled refresh is gated off by closed exchanges.
+     * Implementations should treat upstream failures as non-fatal — the order should still
+     * progress on stale data and rely on the next scheduled refresh.
+     *
+     * @param listingId the listing's unique identifier
+     */
+    void refreshListing(Long listingId);
 }

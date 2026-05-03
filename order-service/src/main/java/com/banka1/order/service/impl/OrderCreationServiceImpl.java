@@ -245,6 +245,11 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         reserveSellQuantityIfNeeded(order);
         if (decision.status() == OrderStatus.APPROVED) {
             transferFee(user, fundingAccountId, fee, listing.getCurrency());
+            // Pull fresh quote data so the async executor (60s later) sees a non-zero
+            // ask/volume even on weekends, when ListingMarketDataScheduler skips refresh
+            // for closed exchanges. StockClient.refreshListing swallows upstream errors
+            // so a transient AlphaVantage failure cannot block the order confirm.
+            stockClient.refreshListing(order.getListingId());
         }
 
         order.setStatus(decision.status());
@@ -310,6 +315,9 @@ public class OrderCreationServiceImpl implements OrderCreationService {
         if (order.getDirection() == OrderDirection.BUY && !Boolean.TRUE.equals(order.getMargin())) {
             checkFunds(fundingAccountId, approximatePrice);
         }
+
+        // See note in confirmOrder — keep ask/volume current so the async executor can fill.
+        stockClient.refreshListing(order.getListingId());
 
         order.setStatus(OrderStatus.APPROVED);
         order.setApprovedBy(supervisorId);
