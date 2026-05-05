@@ -20,4 +20,6 @@ public class CreditAccountDto {
     @NotNull(message = "Unesi amount")
     @DecimalMin(value = "0.0", inclusive = false)
     private BigDecimal amount;
+    @NotNull(message = "Unesi id clienta")
+    private Long clientId;
 }

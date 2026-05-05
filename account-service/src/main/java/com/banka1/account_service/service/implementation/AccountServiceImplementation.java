@@ -151,6 +151,8 @@ public class AccountServiceImplementation implements AccountService {
     @Override
     public void creditAccount(CreditAccountDto creditAccountDto) {
         Account account=validate(creditAccountDto.getAccountNumber());
+        if(!account.getVlasnik().equals(creditAccountDto.getClientId()))
+            throw new IllegalArgumentException("Nisi vlasnik racuna");
         for(int i = 0; true; i++) {
             try {
                 transactionalService.creditTransactional(account,creditAccountDto.getAmount());
